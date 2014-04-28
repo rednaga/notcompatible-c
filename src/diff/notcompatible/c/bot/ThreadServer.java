@@ -106,11 +106,20 @@ public class ThreadServer implements Runnable {
 			port += 1024;
 		}
 		
+		// Extracted out so I can selectively override them
+		createP2PListen();
+		createUDPMixer();
+	}
+	
+	public void createP2PListen() {
 		try {
 			new P2PListen(this).listen(port);
 		} catch (IOException exception) {
 			exception.printStackTrace();
 		}
+	}
+	
+	public void createUDPMixer() {
 		udpMixer = new UDPMixer(this);
 		try {
 			udpMixer.bind(port);
@@ -136,7 +145,6 @@ public class ThreadServer implements Runnable {
 			nio = new NIOServer();
 			socks = new Link(this);
 			p2plist = new P2PConnectionList();
-			
 		} catch(Exception exception) {
 			exception.printStackTrace();
 		}
