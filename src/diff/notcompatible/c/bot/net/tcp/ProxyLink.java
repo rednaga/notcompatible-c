@@ -47,7 +47,7 @@ public class ProxyLink extends TCPSocket {
     }
 
     /**
-     * Links to other close using the privqte selfKey
+     * Links to other close using the private selfKey
      */
     public void close() {
         try {

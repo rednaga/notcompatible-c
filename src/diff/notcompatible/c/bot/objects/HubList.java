@@ -25,6 +25,7 @@ public class HubList {
 	}
 	
 	public void delete(int index) {
+		// TODO: so we don't loose anything we should replicate here to some rolling-file
 		delete((HubListItem)list.getObject(index));
 	}
 	
