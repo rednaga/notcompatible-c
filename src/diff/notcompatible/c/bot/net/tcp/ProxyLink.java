@@ -132,7 +132,7 @@ public class ProxyLink extends TCPSocket {
         
         readBuffer.clear();
 
-        LOGGER.info(" [+] Data read from ProxyLink channel [ " + ch + " ] with DataTransfer [ " + new String(dataTransferPacket.buffer.array()) + " ] ");
+        LOGGER.info(" [+] Data read from ProxyLink channel [ " + ch + " ] with data length of [ " + dataTransferPacket.buffer.array().length + " ] ");
         
         writeData(channel.socket().getInetAddress().getHostName(), channel.socket().getPort(), "read", dataTransferPacket.buffer.array());
         

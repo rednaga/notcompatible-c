@@ -248,7 +248,7 @@ public class Link extends TCPSocket {
                 } else {
                     try {
                         proxyLink.send(dataTransferPacket.buffer.array());
-                        LOGGER.info(" [+] Data sent to ProxyLink channel [ " + proxyLink.ch + " ] with DATA [ " + new String(dataTransferPacket.buffer.array()) + " ] ");
+                        LOGGER.info(" [+] Data sent to ProxyLink channel [ " + proxyLink.ch + " ] with data length [ " + dataTransferPacket.buffer.array().length + " ] ");
                     } catch (Exception exception) {
                     	exception.printStackTrace();
                         proxyLink.close();
