@@ -30,18 +30,19 @@ public class UDPHeader {
         if (data.length == 7) {
         	MyBuffer mb = new MyBuffer();
             mb.put(data);
+
             sig = mb.asWord();
-            
             mb.shift(2);
+            
             flags = mb.asByte();
-            
             mb.shift(1);
+
             sequence = mb.asWord();
-            
             mb.shift(2);
+
             part = mb.asByte();
-            
             mb.shift(1);
+
             count = mb.asByte();
             
             if (sig == 0xFF05) {

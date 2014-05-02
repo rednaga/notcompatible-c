@@ -24,7 +24,7 @@ public class UDPMixer extends UDPSocket {
         long currentTime = System.currentTimeMillis();
         for(int i = 0; i < count(); i++) {
         	UDPPoint udpPoint = list.getByIndex(i);
-        	if(udpPoint.lastChangeTime + 60000 > currentTime || udpPoint.endPoint.getAddress().getHostAddress().equals(owner.ip)) {
+        	if(udpPoint.lastChangeTime + 60000 < currentTime) { // || udpPoint.endPoint.getAddress().getHostAddress().equals(owner.ip)) {
         		udpPoint.doDelete(udpPoint.isEncrypt);
         	} else {
         		udpPoint.check();
@@ -109,18 +109,18 @@ public class UDPMixer extends UDPSocket {
     public void onRead(SelectionKey key) throws IOException {
         super.onRead(key);
         try {
-            ByteBuffer tmp = ByteBuffer.allocate(8192);
-            tmp.clear();
-            InetSocketAddress sa = (InetSocketAddress) channel.receive(tmp);
-            byte[] tmp2 = new byte[tmp.position()];
-            System.arraycopy(tmp.array(), 0, tmp2, 0, tmp.position());
-            UDPPoint up = list.getByInetSocketAddress(sa);
+            ByteBuffer dataBuffer = ByteBuffer.allocate(8192);
+            dataBuffer.clear();
+            InetSocketAddress socketAddress = (InetSocketAddress) channel.receive(dataBuffer);
+            byte[] dataArray = new byte[dataBuffer.position()];
+            System.arraycopy(dataBuffer.array(), 0, dataArray, 0, dataBuffer.position());
+            UDPPoint up = list.getByInetSocketAddress(socketAddress);
             if (up == null) {
                 up = new UDPPoint(this);
-                up.endPoint = sa;
+                up.endPoint = socketAddress;
                 list.add(up);
             }
-            up.onRecv(tmp2);
+            up.onRecv(dataArray);
         } catch (Exception exception) {
         	exception.printStackTrace();
         }

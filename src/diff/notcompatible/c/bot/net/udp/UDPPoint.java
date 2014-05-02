@@ -35,6 +35,9 @@ public class UDPPoint {
 	public UDPPoint(UDPMixer newOwner) {
 		owner = newOwner;
 		remlist = new UDPRemPointList();
+		query = new UDPQuery(this);
+		rc4key = new byte[100];
+		sendSUIPAfter = false;
 	}
 
 	public void onReadySeq(byte[] data) {
@@ -85,29 +88,29 @@ public class UDPPoint {
             case (byte) 0:
                 recvPublic(payloadContents);
                 lastChangeTime = System.currentTimeMillis();
-                return;
+                break;
             case (byte) 1:
                 recvRC4key(payloadContents);
                 lastChangeTime = System.currentTimeMillis();
-                return;
+                break;
             case (byte) 2:
                 if (isEncrypt) {
                     query.postData(payloadContents);
                     lastChangeTime = System.currentTimeMillis();
-                    return;
                 } else {
                     sendPublic();
-                    return;
                 }
+            	break;
             case (byte) 3:
                 isPunch = false;
                 sendPublic();
-                return;
+                break;
             case (byte) 4:
                 isPunch = false;
-                return;
+                break;
+            default:
+                owner.list.delete(this);
         }
-        owner.list.delete(this);
     }
 
 	public void check() {
@@ -142,23 +145,22 @@ public class UDPPoint {
 	
 	public void recvPublic(byte[] data){
 		LOGGER.info(" [+] Receiving a public key over UDP");
-        RSA tmpRSA = new RSA();
-        if (tmpRSA.loadPublic(data)) {
-            byte[] tmp = new byte[101];
-            for(int i = 0; i < tmp.length; i++)
-                tmp[i] = (byte) ((int) Math.round(Math.random() * 256.0d));
-
-            tmp[0] = (byte) 0x7;
-            System.arraycopy(tmp, 1, rc4key, 0, 100);
+        RSA remoteClientsRSA = new RSA();
+        if (remoteClientsRSA.loadPublic(data)) {
+            byte[] tmpRC4Data = new byte[101];
+            for(int i = 0; i < tmpRC4Data.length; i++)
+                tmpRC4Data[i] = (byte) ((int) Math.round(Math.random() * 256.0d));
+            tmpRC4Data[0] = (byte) 0x7;
+            System.arraycopy(tmpRC4Data, 1, rc4key, 0, rc4key.length);
             
-            byte[] tmp2 = tmpRSA.encrypt(tmp);
-            if (tmp2 == null) {
+            byte[] encryptedRC4Key = remoteClientsRSA.encrypt(tmpRC4Data);
+            if (encryptedRC4Key == null) {
                 owner.list.delete(this);
             } else {
             	MyBuffer buffer = new MyBuffer();
             	
                 buffer.put((byte) 1);
-                buffer.put(tmp2);
+                buffer.put(encryptedRC4Key);
                 send(buffer.array());
                 
                 status = 3;
@@ -176,9 +178,11 @@ public class UDPPoint {
 	public void recvRC4key(byte[] data){
 		LOGGER.info(" [+] Receiving a rc4 key over UDP");
         rc4key = owner.owner.RSALocal.decrypt(data);
-        byte[] tmp2 = new byte[100];
-        System.arraycopy(rc4key, 1, tmp2, 0, tmp2.length);
-        rc4key = tmp2;
+
+        byte[] decryptedRC4Key = new byte[100];
+        System.arraycopy(rc4key, 1, decryptedRC4Key, 0, decryptedRC4Key.length);
+        rc4key = decryptedRC4Key;
+
         status = 3;
         isEncrypt = true;
         if (!owner.owner.isIPDetected) {
@@ -474,7 +478,7 @@ public class UDPPoint {
         seq++;
         header.sequence = seq;
         header.part = (buffer.size + 499) / 500;
-        for(int i = 0; i < header.part; i++) {
+        for(int i = 1; i <= header.part; i++) {
             byte[] r = buffer.read(500);
             if (r.length > 0) {
                 header.count = i;
