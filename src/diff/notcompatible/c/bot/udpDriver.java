@@ -7,6 +7,8 @@ import java.util.logging.Handler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import diff.notcompatible.c.bot.objects.HubListItem;
+
 public class udpDriver {
 
 	private final static Logger LOGGER = Logger.getLogger("session");
@@ -61,6 +63,14 @@ public class udpDriver {
 			Object owner = new Object();
 			udpThreadServer = new udpThreadServer(owner);
 			udpThreadServer.init(sessionDirectory, serverPublicKey, clientPublicKey, clientPrivateKey);
+
+			boolean additem = false;
+			if(additem) {
+				HubListItem hli = udpThreadServer.udpList.add();
+				hli.ip = "127.0.0.1";
+				hli.port = 1279;
+			}
+
 			udpThreadServer.run();
 		} catch(Exception exception) {
 			exception.printStackTrace();
