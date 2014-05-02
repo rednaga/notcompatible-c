@@ -157,7 +157,9 @@ public class ThreadServer implements Runnable {
             try {
                 if (hasInternet()) {
                     nio.DispQuery();
-                    if (socks.lastConnect + 10000L < System.currentTimeMillis() && socks.status == LinkStatus.OFFLINE) {
+                    if (socks != null &&
+                    		socks.lastConnect + 10000L < System.currentTimeMillis() &&
+                    		socks.status == LinkStatus.OFFLINE) {
                         socks.init();
                         socks.connect(connectionManager.getServer());
                     }
@@ -191,7 +193,7 @@ public class ThreadServer implements Runnable {
             saveUDPHubList();
             P2PLink p2pLink;
             if(hubList.getCandidateCount() < 5 || udpList.getCandidateCount() < 5) {
-            	if(socks.isConnected())
+            	if(socks != null && socks.isConnected())
             		socks.sendGetHubList();
             	
                 if(hubList.count() < 100 || hubList.getCandidateCount() < 100 || udpList.count() < 100 || udpList.getCandidateCount() < 5) {
@@ -324,7 +326,7 @@ public class ThreadServer implements Runnable {
 	public void portOpen() {
         isOpenPort = true;
         // Ping the boss man with an open port packet
-        if (socks.isConnected()) {
+        if (socks != null && socks.isConnected()) {
             socks.sendOP();
         }
         
