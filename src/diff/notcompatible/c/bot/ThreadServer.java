@@ -52,9 +52,9 @@ public class ThreadServer implements Runnable {
 	
 	public UDPMixer udpMixer;
 	
-	private long lastCheckHub;
-	private long lastCheckP2P;
-	private long lastCheckUDP;
+	protected long lastCheckHub;
+	protected long lastCheckP2P;
+	protected long lastCheckUDP;
 	
 	public File sessionDirectory;
 	
@@ -114,6 +114,7 @@ public class ThreadServer implements Runnable {
 	public void createP2PListen() {
 		try {
 			new P2PListen(this).listen(port);
+			LOGGER.info(" [*] P2P Listening on port [ " + port + " ]");
 		} catch (IOException exception) {
 			exception.printStackTrace();
 		}
@@ -123,6 +124,7 @@ public class ThreadServer implements Runnable {
 		udpMixer = new UDPMixer(this);
 		try {
 			udpMixer.bind(port);
+			LOGGER.info(" [*] UDP Listening on port [ " + port + " ]");
 		} catch(Exception exception) {
 			exception.printStackTrace();
 		}
@@ -148,7 +150,6 @@ public class ThreadServer implements Runnable {
 		} catch(Exception exception) {
 			exception.printStackTrace();
 		}
-		
 	}
 
 	@Override

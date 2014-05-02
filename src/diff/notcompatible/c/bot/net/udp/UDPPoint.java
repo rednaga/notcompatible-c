@@ -34,6 +34,7 @@ public class UDPPoint {
 
 	public UDPPoint(UDPMixer newOwner) {
 		owner = newOwner;
+		remlist = new UDPRemPointList();
 	}
 
 	public void onReadySeq(byte[] data) {
@@ -76,21 +77,22 @@ public class UDPPoint {
 	}
 	
     public void onRecv(byte[] data) {
-        byte[] dt = new byte[data.length - 1];
-        System.arraycopy(data, 1, dt, 0, dt.length);
+        byte[] payloadContents = new byte[data.length - 1];
+        System.arraycopy(data, 1, payloadContents, 0, payloadContents.length);
         
+        // Check command byte
         switch (data[0]) {
             case (byte) 0:
-                recvPublic(dt);
+                recvPublic(payloadContents);
                 lastChangeTime = System.currentTimeMillis();
                 return;
             case (byte) 1:
-                recvRC4key(dt);
+                recvRC4key(payloadContents);
                 lastChangeTime = System.currentTimeMillis();
                 return;
             case (byte) 2:
                 if (isEncrypt) {
-                    query.postData(dt);
+                    query.postData(payloadContents);
                     lastChangeTime = System.currentTimeMillis();
                     return;
                 } else {
