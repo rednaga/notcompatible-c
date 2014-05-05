@@ -1,6 +1,5 @@
-package diff.notcompatible.c.bot;
+package diff.notcompatible.c.bot.net;
 
-import diff.notcompatible.c.bot.net.NIOServer;
 import diff.notcompatible.c.bot.net.tcp.objects.P2PConnectionList;
 
 public class udpThreadServer extends ThreadServer {

