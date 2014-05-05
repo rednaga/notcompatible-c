@@ -29,7 +29,7 @@ public class UDPPoint {
 	public int seq;
 	public UDPQuery query;
 	public long longCheckTime;
-	public int status;
+	public LinkStatus status;
 	public boolean sendSUIPAfter;
 
 	public UDPPoint(UDPMixer newOwner) {
@@ -38,6 +38,7 @@ public class UDPPoint {
 		query = new UDPQuery(this);
 		rc4key = new byte[100];
 		sendSUIPAfter = false;
+		status = LinkStatus.OFFLINE;
 	}
 
 	public void onReadySeq(byte[] data) {
@@ -163,7 +164,7 @@ public class UDPPoint {
                 buffer.put(encryptedRC4Key);
                 send(buffer.array());
                 
-                status = 3;
+                status = LinkStatus.ONLINE;
                 isEncrypt = true;
                 if (owner.owner.udpList.count() < 1000) {
                     sendGETHUB();
@@ -183,7 +184,7 @@ public class UDPPoint {
         System.arraycopy(rc4key, 1, decryptedRC4Key, 0, decryptedRC4Key.length);
         rc4key = decryptedRC4Key;
 
-        status = 3;
+        status = LinkStatus.ONLINE;
         isEncrypt = true;
         if (!owner.owner.isIPDetected) {
             sendPINGME();
@@ -466,7 +467,7 @@ public class UDPPoint {
         buffer.put(modulus);
         
         send(buffer.array());
-        status = 2;
+        status = LinkStatus.KEY_EXCHANGE_START;
 	}
 	
     public void send(Packet packet) {
@@ -513,5 +514,12 @@ public class UDPPoint {
         } catch (IOException exception) {
         	exception.printStackTrace();
         }
+    }
+
+    public static enum LinkStatus {
+    	OFFLINE, // No connection
+    	KEY_EXCHANGE_START, // Connection started, need crypto
+    	KEY_EXCHANGE_DONE, // Key sent to C&C
+    	ONLINE // Key exchange done and valid
     }
 }
