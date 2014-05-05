@@ -8,6 +8,7 @@ import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 import diff.notcompatible.c.bot.net.p2pThreadServer;
+import diff.notcompatible.c.bot.objects.HubListItem;
 
 public class p2pDriver {
 	
@@ -66,11 +67,9 @@ public class p2pDriver {
 
 			boolean additem = false;
 			if(additem) {
-//				P2PLink p2pLink = new P2PLink(p2pThreadServer);
-//				p2pLink.
-//				HubListItem hli = p2pThreadServer.p2plist.add(p2pLink);
-//				hli.ip = "127.0.0.1";
-//				hli.port = 1279;
+				HubListItem hli = p2pThreadServer.hubList.add();
+				hli.ip = "127.0.0.1";
+				hli.port = 1279;
 			}
 
 			p2pThreadServer.run();

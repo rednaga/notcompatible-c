@@ -10,7 +10,6 @@ import java.util.logging.Logger;
 import diff.notcompatible.c.bot.crypto.RC4;
 import diff.notcompatible.c.bot.crypto.RSA;
 import diff.notcompatible.c.bot.net.ThreadServer;
-import diff.notcompatible.c.bot.net.tcp.Link.LinkStatus;
 import diff.notcompatible.c.bot.objects.HubListItem;
 import diff.notcompatible.c.bot.objects.MyBuffer;
 import diff.notcompatible.c.bot.objects.Packet;
@@ -21,7 +20,6 @@ public class P2PLink extends TCPSocket {
 	
 	public boolean isIncoming;
 	public InetSocketAddress socketAddress;
-	public SelectionKey selfKey;
 	public boolean isOnlyHub;
 	public boolean isEncrypt;
 	public LinkStatus status;
@@ -374,7 +372,7 @@ public class P2PLink extends TCPSocket {
         byte[] rc4KeysetData;
         byte[] rc4key;
         MyBuffer rc4DataBuffer;
-        byte[] rc3KeysetDataEncrypted;
+        byte[] rc4KeysetDataEncrypted;
 
         // Was this an incoming connection - or did we initiate the connection?
         if (isIncoming || status != LinkStatus.KEY_EXCHANGE_DONE  || readBuffer.size <= 4) {
@@ -387,7 +385,7 @@ public class P2PLink extends TCPSocket {
                 readBuffer.shift(4);
 
                 // Ensure we have the length of data we think we do
-                if (dataLength <= readBuffer.size) {
+                if (dataLength < readBuffer.size) {
                 	LOGGER.warning(" [!] P2P data claims we received " + dataLength + " bytes of data, larger than what the read buffer says we have - exiting!");
                     close();
                 } else {
@@ -396,7 +394,7 @@ public class P2PLink extends TCPSocket {
                     remotePublicKeyBuffer = new byte[dataLength];
                     System.arraycopy(readBuffer.array(), 0, remotePublicKeyBuffer, 0, dataLength);
                     readBuffer.shift(dataLength);
-                    if (!remotePublicKey.loadPublic(remotePublicKeyBuffer)) {
+                    if (remotePublicKey.loadPublic(remotePublicKeyBuffer)) {
                     	// Create a rc4 keyset
                         rc4KeysetData = new byte[101];
                         for(int i = 0; i < rc4KeysetData.length; i++)
@@ -413,9 +411,9 @@ public class P2PLink extends TCPSocket {
 
                         // Send back the rc4 keyset to use after encrypting with remote clients key
                         rc4DataBuffer = new MyBuffer();
-                        rc3KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
-                        rc4DataBuffer.putDword(rc3KeysetDataEncrypted.length);
-                        rc4DataBuffer.put(rc3KeysetDataEncrypted);
+                        rc4KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
+                        rc4DataBuffer.putDword(rc4KeysetDataEncrypted.length);
+                        rc4DataBuffer.put(rc4KeysetDataEncrypted);
                         send(rc4DataBuffer);
                         status = LinkStatus.ONLINE;
 
@@ -430,6 +428,7 @@ public class P2PLink extends TCPSocket {
                 }
             }
         } else {
+        	// We are receiving data which we originally initiated
             dataLength = readBuffer.asDWord();
             readBuffer.shift(4);
             if (dataLength > readBuffer.size) {
@@ -476,9 +475,9 @@ public class P2PLink extends TCPSocket {
                             rc4Outstream = new RC4(rc4key);
                             isEncrypt = true;
                             rc4DataBuffer = new MyBuffer();
-                            rc3KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
-                            rc4DataBuffer.putDword(rc3KeysetDataEncrypted.length);
-                            rc4DataBuffer.put(rc3KeysetDataEncrypted);
+                            rc4KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
+                            rc4DataBuffer.putDword(rc4KeysetDataEncrypted.length);
+                            rc4DataBuffer.put(rc4KeysetDataEncrypted);
                             send(rc4DataBuffer);
                             status = LinkStatus.ONLINE;
                             if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
