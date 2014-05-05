@@ -10,7 +10,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Logger;
 
-import diff.notcompatible.c.bot.ThreadServer;
+import diff.notcompatible.c.bot.net.ThreadServer;
 import diff.notcompatible.c.bot.objects.Packet;
 
 public class ProxyLink extends TCPSocket {

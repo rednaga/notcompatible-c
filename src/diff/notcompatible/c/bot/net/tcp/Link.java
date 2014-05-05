@@ -9,8 +9,8 @@ import java.util.logging.Logger;
 
 import org.bouncycastle.util.encoders.Hex;
 
-import diff.notcompatible.c.bot.ThreadServer;
 import diff.notcompatible.c.bot.crypto.RC4;
+import diff.notcompatible.c.bot.net.ThreadServer;
 import diff.notcompatible.c.bot.net.tcp.objects.ProxyList;
 import diff.notcompatible.c.bot.objects.MyBuffer;
 import diff.notcompatible.c.bot.objects.Packet;

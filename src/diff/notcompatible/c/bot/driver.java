@@ -7,6 +7,8 @@ import java.util.logging.Handler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import diff.notcompatible.c.bot.net.ThreadServer;
+
 public class driver {
 
 	private final static Logger LOGGER = Logger.getLogger("session");

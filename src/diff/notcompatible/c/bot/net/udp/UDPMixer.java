@@ -5,7 +5,7 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 
-import diff.notcompatible.c.bot.ThreadServer;
+import diff.notcompatible.c.bot.net.ThreadServer;
 import diff.notcompatible.c.bot.net.udp.objects.UDPPointList;
 import diff.notcompatible.c.bot.net.udp.objects.UDPRemPointListItem;
 

