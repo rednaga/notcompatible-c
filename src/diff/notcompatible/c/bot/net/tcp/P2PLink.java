@@ -370,7 +370,7 @@ public class P2PLink extends TCPSocket {
         RSA remotePublicKey;
         byte[] remotePublicKeyBuffer;
         byte[] rc4KeysetData;
-        byte[] rc4key;
+        byte[] rc4Key;
         MyBuffer rc4DataBuffer;
         byte[] rc4KeysetDataEncrypted;
 
@@ -386,7 +386,7 @@ public class P2PLink extends TCPSocket {
 
                 // Ensure we have the length of data we think we do
                 if (dataLength < readBuffer.size) {
-                	LOGGER.warning(" [!] P2P data claims we received " + dataLength + " bytes of data, larger than what the read buffer says we have - exiting!");
+                	LOGGER.warning(" [!] P2P data claims we received " + dataLength + " bytes of data, less than what the read buffer says we have - exiting!");
                     close();
                 } else {
                 	// Read buffer for the remote p2p clients public key and attempt to ingest it
@@ -401,12 +401,12 @@ public class P2PLink extends TCPSocket {
                     		rc4KeysetData[1] = (byte) ((int) Math.round(Math.random() * 256));
                         rc4KeysetData[0] = (byte) 0x7;
 
-                        rc4key = new byte[100];
-                        System.arraycopy(rc4KeysetData, 1, rc4key, 0, 100);
+                        rc4Key = new byte[100];
+                        System.arraycopy(rc4KeysetData, 1, rc4Key, 0, 100);
                         
                         // Initialize the streams
-                        rc4Instream = new RC4(rc4key);
-                        rc4Outstream = new RC4(rc4key);
+                        rc4Instream = new RC4(rc4Key);
+                        rc4Outstream = new RC4(rc4Key);
                         isEncrypt = true;
 
                         // Send back the rc4 keyset to use after encrypting with remote clients key
@@ -432,24 +432,31 @@ public class P2PLink extends TCPSocket {
             dataLength = readBuffer.asDWord();
             readBuffer.shift(4);
             if (dataLength > readBuffer.size) {
+            	LOGGER.warning(" [!] P2P data claims we received " + dataLength + " bytes of data, larger than what the read buffer says we have - exiting!");
                 close();
             } else {
                 rc4KeysetData = new byte[dataLength];
                 System.arraycopy(readBuffer.array(), 0, rc4KeysetData, 0, rc4KeysetData.length);
                 readBuffer.shift(dataLength);
-                byte[] tmp2_2 = new byte[100];
-                System.arraycopy(owner.RSALocal.decrypt(rc4KeysetData), 1, tmp2_2, 0, tmp2_2.length);
-                rc4key = tmp2_2;
-                rc4Instream = new RC4(rc4key);
-                rc4Outstream = new RC4(rc4key);
+                
+                // Copy out rc4 key and initialize streams
+                rc4Key = new byte[100];
+                System.arraycopy(owner.RSALocal.decrypt(rc4KeysetData), 1, rc4Key, 0, rc4Key.length);
+                rc4Instream = new RC4(rc4Key);
+                rc4Outstream = new RC4(rc4Key);
                 isEncrypt = true;
+
+                // Decrypt data
                 receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
                 readBuffer.clear();
+                
                 status = LinkStatus.ONLINE;
                 sendHello();
                 hr.connectCount = 0;
                 hr.lastConnect = System.currentTimeMillis();
                 hr.status = 1;
+
+                // Parse any left over commands
                 if (status != LinkStatus.OFFLINE && isIncoming || readBuffer.size <= 4) {
                     if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
                         parseCommand();
@@ -465,15 +472,20 @@ public class P2PLink extends TCPSocket {
                         if (remotePublicKey.loadPublic(remotePublicKeyBuffer)) {
                             close();
                         } else {
+                        	// Create a new rc4 keyset
                             rc4KeysetData = new byte[101];
                         	for(int i = 0; i < rc4KeysetData.length; i++)
                         		rc4KeysetData[1] = (byte) ((int) Math.round(Math.random() * 256));
-                            rc4KeysetData[0] = (byte) 7;
-                            rc4key = new byte[100];
-                            System.arraycopy(rc4KeysetData, 1, rc4key, 0, 100);
-                            rc4Instream = new RC4(rc4key);
-                            rc4Outstream = new RC4(rc4key);
+                            rc4KeysetData[0] = (byte) 0x7;
+                            
+                            // Copy over and initialize streams
+                            rc4Key = new byte[100];
+                            System.arraycopy(rc4KeysetData, 1, rc4Key, 0, 100);
+                            rc4Instream = new RC4(rc4Key);
+                            rc4Outstream = new RC4(rc4Key);
                             isEncrypt = true;
+                            
+                            // Send rc4 data
                             rc4DataBuffer = new MyBuffer();
                             rc4KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
                             rc4DataBuffer.putDword(rc4KeysetDataEncrypted.length);
