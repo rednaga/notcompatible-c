@@ -1,0 +1,54 @@
+<project name="NotCompatible.C MockBot" default="compile">
+  <property name="classpath" value="" />
+
+  <description>
+    NotCompatible.C Bot builder
+  </description>
+
+  <property name="debuglevel" value="source,lines,vars" />
+  <property name="source" value="1.6" />
+  <property name="target" value="1.6" />
+  <property name="src" location="src"/>
+  <property name="bin" location="bin"/>
+  <property name="dist"  location="dist"/>
+
+  <target name="init">
+    <tstamp/>
+  </target>
+
+  <presetdef name="my.javac">
+    <javac includeAntRuntime="false" debug="true" debuglevel="${debuglevel}"
+           source="${source}" target="${target}" encoding="ISO-8859-1" />
+  </presetdef>
+
+  <target name="clean">
+    <delete dir="${bin}" />
+    <delete dir="${dist}" />
+  </target>
+
+  <path id="compile.classpath">
+    <pathelement path="${classpath}" />
+    <fileset dir="lib/">
+      <include name="bcprov-jdk15on-149.jar" />
+    </fileset>
+  </path>
+
+  <target name="compile">
+    <mkdir dir="${bin}/classes" />
+    <my.javac destdir="${bin}/classes" srcdir="${src}/">
+      <classpath refid="compile.classpath" />
+    </my.javac>
+  </target>
+
+  <target name="jar" depends="init,compile">
+    <mkdir dir="${dist}" />
+    <jar jarfile="${dist}/nc-bot-${DSTAMP}.jar" basedir="${bin}/classes">
+      <manifest>
+        <attribute name="Main-Class"
+                   value="diff.notcompatible.c.bot.driver" />
+        <attribute name="Class-Path"
+                   value="bcprov-jdk15on-149.jar" />
+      </manifest>
+    </jar>
+  </target>
+</project>
