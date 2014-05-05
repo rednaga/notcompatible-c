@@ -19,7 +19,6 @@ public class P2PLink extends TCPSocket {
 	private final static Logger LOGGER = Logger.getLogger("session");
 	
 	public boolean isIncoming;
-	public SocketChannel channel;
 	public InetSocketAddress socketAddress;
 	public SelectionKey selfKey;
 	public boolean isOnlyHub;

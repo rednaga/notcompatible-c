@@ -22,8 +22,8 @@ public class P2PListen extends TCPListen {
         
         // Make sure we do not have a connection on this host address / port combo already and it is
         // no on the same subnet as any other node we already have (evade detection?)
-        if ((owner.p2plist.getByIpAndPort(socketChannel.socket().getInetAddress().getHostAddress(), socketChannel.socket().getPort()) == null
-        		&& owner.p2plist.checkSubnet(socketChannel.socket().getInetAddress().getHostAddress()))) {
+        if (owner.p2plist.getByIpAndPort(socketChannel.socket().getInetAddress().getHostAddress(), socketChannel.socket().getPort()) == null) {// == null
+        	//	&& owner.p2plist.checkSubnet(socketChannel.socket().getInetAddress().getHostAddress()))) {
             P2PLink p2pLink = new P2PLink(owner);
             p2pLink.init();
             p2pLink.isIncoming = true;
