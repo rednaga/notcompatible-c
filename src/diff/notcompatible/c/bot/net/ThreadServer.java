@@ -337,6 +337,11 @@ public class ThreadServer implements Runnable {
         
         Packet ipPacket = itemPacket.add();
         ipPacket.tag = "IP";
+
+        // This sometimes can happen, just fake it I guess
+        if(ip.isEmpty())
+        	ip = "127.0.0.1";
+
         ipPacket.buffer.putIP(ip);
         ipPacket = itemPacket.add();
         ipPacket.tag = "Port";
