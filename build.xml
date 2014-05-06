@@ -8,9 +8,10 @@
   <property name="debuglevel" value="source,lines,vars" />
   <property name="source" value="1.6" />
   <property name="target" value="1.6" />
-  <property name="src" location="src"/>
-  <property name="bin" location="bin"/>
-  <property name="dist"  location="dist"/>
+  <property name="src" location="src" />
+  <property name="bin" location="bin" />
+  <property name="dist"  location="dist" />
+  <property name="lib" location="lib" />
 
   <target name="init">
     <tstamp/>
@@ -28,8 +29,8 @@
 
   <path id="compile.classpath">
     <pathelement path="${classpath}" />
-    <fileset dir="lib/">
-      <include name="bcprov-jdk15on-149.jar" />
+    <fileset dir="${lib}/">
+      <include name="**/*.jar" />
     </fileset>
   </path>
 
@@ -42,7 +43,7 @@
 
   <target name="jar" depends="init,compile">
     <mkdir dir="${dist}" />
-    <jar jarfile="${dist}/nc-bot-${DSTAMP}.jar" basedir="${bin}/classes">
+    <jar destfile="${dist}/nc-bot-${DSTAMP}.jar" basedir="${bin}/classes">
       <manifest>
         <attribute name="Main-Class"
                    value="diff.notcompatible.c.bot.driver" />
