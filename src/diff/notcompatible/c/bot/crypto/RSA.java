@@ -16,6 +16,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 import javax.crypto.Cipher;
 
@@ -23,6 +24,8 @@ import javax.crypto.Cipher;
  * Simple class for RSA crypto functionality
  */
 public class RSA {
+
+    private final static Logger LOGGER = Logger.getLogger("session");
 
     public RSAPrivateKey rsaPrivateKey;
     public RSAPublicKey rsaPublicKey;
@@ -40,6 +43,7 @@ public class RSA {
             rsaPrivateKey = (RSAPrivateKey) keyPair.getPrivate();
             rsaPublicKey = (RSAPublicKey) keyPair.getPublic();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "genKey()", exception);
             exception.printStackTrace();
         }
     }
@@ -60,6 +64,7 @@ public class RSA {
             cipher.init(Cipher.DECRYPT_MODE, rsaPrivateKey);
             result = cipher.doFinal(data);
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "decrypt()", exception);
             exception.printStackTrace();
         }
 
@@ -82,6 +87,7 @@ public class RSA {
             cipher.init(Cipher.ENCRYPT_MODE, rsaPublicKey);
             result = cipher.doFinal(data);
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "encrypt()", exception);
             exception.printStackTrace();
         }
 
@@ -109,8 +115,9 @@ public class RSA {
             KeyFactory kf = KeyFactory.getInstance("RSA");
             rsaPublicKey = (RSAPublicKey) kf.generatePublic(rsaPKS);
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "loadKey()", exception);
+            exception.printStackTrace();
         }
     }
 
@@ -130,6 +137,7 @@ public class RSA {
 
             return true;
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "loadPublic()", exception);
             exception.printStackTrace();
         }
         return false;
@@ -168,6 +176,7 @@ public class RSA {
             X509EncodedKeySpec pubKeySpec = new X509EncodedKeySpec(buffer);
             rsaPublicKey = (RSAPublicKey) keyFactory.generatePublic(pubKeySpec);
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "loadClientPublic()", exception);
             exception.printStackTrace();
         }
     }
@@ -186,6 +195,7 @@ public class RSA {
             PKCS8EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(buffer);
             rsaPrivateKey = (RSAPrivateKey) keyFactory.generatePrivate(privKeySpec);
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "loadClientPrivate()", exception);
             exception.printStackTrace();
         }
     }
@@ -199,6 +209,7 @@ public class RSA {
             file.flush();
             file.close();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "saveClientPublic()", exception);
             exception.printStackTrace();
         }
     }
@@ -212,6 +223,7 @@ public class RSA {
             file.flush();
             file.close();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "saveClientPrivate()", exception);
             exception.printStackTrace();
         }
 

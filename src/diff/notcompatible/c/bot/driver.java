@@ -65,6 +65,7 @@ public class driver {
             threadServer.init(sessionDirectory, serverPublicKey, clientPublicKey, clientPrivateKey);
             threadServer.run();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "main", exception);
             exception.printStackTrace();
         }
     }

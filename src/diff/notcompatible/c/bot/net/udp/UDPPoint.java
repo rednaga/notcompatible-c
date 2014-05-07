@@ -502,6 +502,7 @@ public class UDPPoint {
         try {
             owner.channel.send(tmp, endPoint);
         } catch (IOException exception) {
+            LOGGER.throwing(exception.getClass().getName(), "send()", exception);
             exception.printStackTrace();
         }
     }
@@ -516,6 +517,7 @@ public class UDPPoint {
         try {
             owner.channel.send(tmp, endPoint);
         } catch (IOException exception) {
+            LOGGER.throwing(exception.getClass().getName(), "sendEcrypt()", exception);
             exception.printStackTrace();
         }
     }

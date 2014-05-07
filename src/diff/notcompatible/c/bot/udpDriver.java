@@ -74,7 +74,7 @@ public class udpDriver {
 
             udpThreadServer.run();
         } catch (Exception exception) {
-            LOGGER.throwing(udpDriver.class.toString(), "main", exception);
+            LOGGER.throwing(exception.getClass().getName(), "main", exception);
             exception.printStackTrace();
         }
     }

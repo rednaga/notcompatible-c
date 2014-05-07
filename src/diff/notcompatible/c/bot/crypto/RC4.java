@@ -1,5 +1,6 @@
 package diff.notcompatible.c.bot.crypto;
 
+
 /*
  * Super simple implementation of RC4 ciphering - a bit messy as
  * I just reversed it before I realized it was RC4 (and was unsure if

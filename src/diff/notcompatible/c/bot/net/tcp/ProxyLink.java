@@ -39,8 +39,10 @@ public class ProxyLink extends TCPSocket {
             }
         } catch (IOException exception) {
             try {
+                LOGGER.throwing(exception.getClass().getName(), "connect()", exception);
                 onNoConnect(selfKey);
             } catch (IOException exception2) {
+                LOGGER.throwing(exception2.getClass().getName(), "connect()->onNoConnect()", exception2);
                 exception2.printStackTrace();
             }
         }
@@ -52,8 +54,9 @@ public class ProxyLink extends TCPSocket {
     public void close() {
         try {
             onClose(selfKey);
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "p2pThreadServer()", exception);
+            exception.printStackTrace();
         }
     }
 

@@ -57,24 +57,26 @@ public class Link extends TCPSocket {
         sendAndClose = false;
     }
 
-    public void connect(InetSocketAddress sa) {
+    public void connect(InetSocketAddress newSocketAddress) {
         try {
             status = LinkStatus.KEY_EXCHANGE_START;
             lastConnect = System.currentTimeMillis();
             channel = SocketChannel.open();
             channel.configureBlocking(false);
-            socketAddress = sa;
+            socketAddress = newSocketAddress;
             channel.connect(socketAddress);
             if (selector != null) {
                 selfKey = channel.register(selector, 8);
                 selfKey.attach(this);
                 owner.nio.register(this);
             }
-        } catch (IOException e) {
+        } catch (IOException exception) {
             try {
+                LOGGER.throwing(exception.getClass().getName(), "connect()", exception);
                 onNoConnect(selfKey);
-            } catch (IOException e1) {
-                e1.printStackTrace();
+            } catch (IOException exception2) {
+                LOGGER.throwing(exception2.getClass().getName(), "connect()->onNoConnect()", exception2);
+                exception2.printStackTrace();
             }
         }
     }
@@ -83,8 +85,9 @@ public class Link extends TCPSocket {
         try {
             firstRead = true;
             onClose(selfKey);
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "close()", exception);
+            exception.printStackTrace();
         }
     }
 
@@ -114,16 +117,17 @@ public class Link extends TCPSocket {
         super.onConnect(key);
         LOGGER.info(" [*] Link established - sending public key for futher comms.");
 
-        byte[] ba = owner.RSALocal.rsaPublicKey.getModulus().toByteArray();
-        if (ba[0] == 0) {
-            byte[] tmp = new byte[(ba.length - 1)];
-            System.arraycopy(ba, 1, tmp, 0, tmp.length);
-            ba = tmp;
+        byte[] publicKeyData = owner.RSALocal.rsaPublicKey.getModulus().toByteArray();
+        if (publicKeyData[0] == 0) {
+            byte[] tmp = new byte[(publicKeyData.length - 1)];
+            System.arraycopy(publicKeyData, 1, tmp, 0, tmp.length);
+            publicKeyData = tmp;
         }
-        MyBuffer mb = new MyBuffer();
-        mb.putDword(ba.length);
-        mb.put(ba);
-        send(mb.array());
+
+        MyBuffer buffer = new MyBuffer();
+        buffer.putDword(publicKeyData.length);
+        buffer.put(publicKeyData);
+        send(buffer.array());
         status = LinkStatus.KEY_EXCHANGE_DONE;
     }
 

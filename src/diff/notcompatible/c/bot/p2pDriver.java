@@ -74,7 +74,7 @@ public class p2pDriver {
 
             p2pThreadServer.run();
         } catch (Exception exception) {
-            LOGGER.throwing(p2pDriver.class.toString(), "main", exception);
+            LOGGER.throwing(exception.getClass().getName(), "main", exception);
             exception.printStackTrace();
         }
     }

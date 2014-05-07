@@ -29,7 +29,7 @@ public class NIOServer {
     // TODO : Ewww clean up
     public int DispQuery() throws IOException {
         int extraTimeout = 0;
-        checktimeout();
+        checkTimeout();
         int r = selector.select(5000 + extraTimeout);
         if (r > -1) {
             Iterator<SelectionKey> selectedKeys = selector.selectedKeys().iterator();
@@ -69,9 +69,10 @@ public class NIOServer {
                     }
                 } catch (ConnectException exception) {
                     LOGGER.warning(" [*] Connection exception : [ " + exception.getMessage() + " ] ");
-                    LOGGER.throwing(NIOServer.class.toString(), "DispQuery", exception);
+                    LOGGER.throwing(exception.getClass().getName(), "DispQuery()", exception);
+                    exception.printStackTrace();
                 } catch (Exception exception) {
-                    LOGGER.throwing(NIOServer.class.toString(), "DispQuery", exception);
+                    LOGGER.throwing(exception.getClass().getName(), "DispQuery()", exception);
                     exception.printStackTrace();
                     ((CustomSocket) key.attachment()).onClose(key);
                     key.cancel();
@@ -84,7 +85,7 @@ public class NIOServer {
     /**
      * Check if socket potentially timed out, or if we should send a NoConnect to C&C
      */
-    public void checktimeout() {
+    public void checkTimeout() {
         long currentTime = System.currentTimeMillis();
         // Esnure we aren't being spammy
         if ((lastCheck + 5000) < currentTime) {
@@ -96,8 +97,9 @@ public class NIOServer {
                     try {
                         // Send C&C NoConnection (I'm available!)
                         customSocket.onNoConnect(null);
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    } catch (IOException exception) {
+                        LOGGER.throwing(exception.getClass().getName(), "checkTimeout()", exception);
+                        exception.printStackTrace();
                     }
                 }
             }

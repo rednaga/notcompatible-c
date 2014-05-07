@@ -69,11 +69,13 @@ public class P2PLink extends TCPSocket {
                 selfKey.attach(this);
                 owner.nio.register(this);
             }
-        } catch (IOException e) {
+        } catch (IOException exception) {
             try {
+                LOGGER.throwing(exception.getClass().getName(), "connect()", exception);
                 onNoConnect(selfKey);
-            } catch (IOException exception) {
-                exception.printStackTrace();
+            } catch (IOException exception2) {
+                LOGGER.throwing(exception2.getClass().getName(), "connect()->onNoConnect()", exception2);
+                exception2.printStackTrace();
             }
         }
     }
@@ -82,6 +84,7 @@ public class P2PLink extends TCPSocket {
         try {
             onClose(selfKey);
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "close()", exception);
             exception.printStackTrace();
         }
     }

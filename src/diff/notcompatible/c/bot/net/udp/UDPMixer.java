@@ -4,12 +4,15 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
+import java.util.logging.Logger;
 
 import diff.notcompatible.c.bot.net.ThreadServer;
 import diff.notcompatible.c.bot.net.udp.objects.UDPPointList;
 import diff.notcompatible.c.bot.net.udp.objects.UDPRemPointListItem;
 
 public class UDPMixer extends UDPSocket {
+
+    private final static Logger LOGGER = Logger.getLogger("session");
 
     public UDPPointList list;
     public ThreadServer owner;
@@ -126,6 +129,7 @@ public class UDPMixer extends UDPSocket {
             }
             up.onRecv(dataArray);
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "onRead()", exception);
             exception.printStackTrace();
         }
     }

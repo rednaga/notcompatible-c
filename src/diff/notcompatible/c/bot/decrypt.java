@@ -103,8 +103,8 @@ public class decrypt {
             dis.close();
             fi.close();
 
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException exception) {
+            exception.printStackTrace();
         }
     }
 

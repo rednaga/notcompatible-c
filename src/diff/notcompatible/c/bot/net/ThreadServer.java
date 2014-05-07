@@ -113,6 +113,7 @@ public class ThreadServer implements Runnable {
             new P2PListen(this).listen(port);
             LOGGER.info(" [*] P2P Listening on port [ " + port + " ]");
         } catch (IOException exception) {
+            LOGGER.throwing(exception.getClass().getName(), "createP2PListen()", exception);
             exception.printStackTrace();
         }
     }
@@ -123,6 +124,7 @@ public class ThreadServer implements Runnable {
             udpMixer.bind(port);
             LOGGER.info(" [*] UDP Listening on port [ " + port + " ]");
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "createUDPMixer()", exception);
             exception.printStackTrace();
         }
     }
@@ -145,6 +147,7 @@ public class ThreadServer implements Runnable {
             socks = new Link(this);
             p2plist = new P2PConnectionList();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "ThreadServer()", exception);
             exception.printStackTrace();
         }
     }
@@ -171,8 +174,10 @@ public class ThreadServer implements Runnable {
                     Thread.sleep(1000);
                 }
             } catch (InterruptedException exception) {
+                LOGGER.throwing(exception.getClass().getName(), "run()", exception);
                 exception.printStackTrace();
             } catch (Exception exception) {
+                LOGGER.throwing(exception.getClass().getName(), "run()", exception);
                 exception.printStackTrace();
             }
         }
@@ -296,6 +301,7 @@ public class ThreadServer implements Runnable {
                 LOGGER.warning(" [!] No Hub list found - likely never created!");
             }
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "loadHubList()", exception);
             exception.printStackTrace();
         }
     }
@@ -319,6 +325,7 @@ public class ThreadServer implements Runnable {
                 LOGGER.warning(" [!] No UDP Hub list found - likely never created!");
             }
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "loadUDPHubList()", exception);
             exception.printStackTrace();
         }
     }
@@ -365,6 +372,7 @@ public class ThreadServer implements Runnable {
             file.flush();
             file.close();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "saveUDPHubList()", exception);
             exception.printStackTrace();
         }
     }
@@ -376,6 +384,7 @@ public class ThreadServer implements Runnable {
             file.flush();
             file.close();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "saveHubList()", exception);
             exception.printStackTrace();
         }
     }

