@@ -17,9 +17,9 @@ public class UDPPointList {
 
     public UDPPoint add() {
         UDPPoint point = new UDPPoint(owner);
-        
+
         list.add(point);
-        
+
         return point;
     }
 
@@ -36,10 +36,12 @@ public class UDPPointList {
     }
 
     public UDPPoint getByInetSocketAddress(InetSocketAddress socketAddress) {
-    	for(int i = 0; i < count(); i++)
-    		if(((UDPPoint) list.getObject(i)).endPoint.equals(socketAddress))
-    			return (UDPPoint) list.getObject(i);
-    	
+        for (int i = 0; i < count(); i++) {
+            if (((UDPPoint) list.getObject(i)).endPoint.equals(socketAddress)) {
+                return (UDPPoint) list.getObject(i);
+            }
+        }
+
         return null;
     }
 
@@ -49,18 +51,21 @@ public class UDPPointList {
     }
 
     public int getConnection() {
-    	int candidates = 0;
-    	
-    	for(int i = 0; i < count(); i++)
-    		if(((UDPPoint) list.getObject(i)).isEncrypt)
-    			candidates++;
-    	
-    	return candidates;
-    	}
+        int candidates = 0;
+
+        for (int i = 0; i < count(); i++) {
+            if (((UDPPoint) list.getObject(i)).isEncrypt) {
+                candidates++;
+            }
+        }
+
+        return candidates;
+    }
 
     public void check() {
-    	for(int i = 0; i < count(); i++)
-    		((UDPPoint) list.getObject(i)).check();
+        for (int i = 0; i < count(); i++) {
+            ((UDPPoint) list.getObject(i)).check();
+        }
     }
 
     public void delete(int index) {

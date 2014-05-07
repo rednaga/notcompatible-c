@@ -13,10 +13,10 @@ public class TCPListen extends CustomSocket {
     public Selector selector;
     public SelectionKey selfKey;
 
-    public TCPListen(){
-    	
+    public TCPListen() {
+
     }
-    
+
     public TCPListen(Selector newSelector) {
         selector = newSelector;
     }
@@ -34,16 +34,19 @@ public class TCPListen extends CustomSocket {
         }
     }
 
+    @Override
     public void onAccept(SelectionKey key) throws IOException {
 
     }
 
+    @Override
     public void onClose(SelectionKey key) throws IOException {
         if (key != null) {
             key.cancel();
         }
     }
 
+    @Override
     public void onNoConnect(SelectionKey key) throws IOException {
 
     }

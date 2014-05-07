@@ -20,11 +20,13 @@ public class UDPQueryItem {
     }
 
     private UDPQueryItemData getPart(int part) {
-    	for(int i = 0; i < frag.count; i++)
-    		if(((UDPQueryItemData) frag.getObject(i)).part == part)
-    			return (UDPQueryItemData) frag.getObject(i);
+        for (int i = 0; i < frag.count; i++) {
+            if (((UDPQueryItemData) frag.getObject(i)).part == part) {
+                return (UDPQueryItemData) frag.getObject(i);
+            }
+        }
 
-    	return null;
+        return null;
     }
 
     public void put(int part, byte[] data) {
@@ -35,17 +37,18 @@ public class UDPQueryItem {
             dt.data = data;
             frag.add(dt);
             MyBuffer mb = new MyBuffer();
-            
-            for(int i = 1; i <= totalCount; i++) {
+
+            for (int i = 1; i <= totalCount; i++) {
                 dt = getPart(i);
-                if (dt != null)
+                if (dt != null) {
                     mb.put(dt.data);
+                }
             }
-            
+
             owner.fullSeq(this, mb.array());
         }
     }
-    
+
     class UDPQueryItemData {
         byte[] data;
         int part;

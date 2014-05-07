@@ -20,7 +20,7 @@ public class ServerGroup {
     }
 
     public void delete(int index) {
-    	serverList.delete(serverList.getObject(index));
+        serverList.delete(serverList.getObject(index));
     }
 
     public Server indexOf(int index) {

@@ -33,10 +33,12 @@ public class ProxyList {
      * @return
      */
     public ProxyLink getByChannel(int channel) {
-    	for(int i = 0; i < list.count; i++)
-    		if(((ProxyLink) list.getObject(i)).ch == channel)
-    			return (ProxyLink) list.getObject(i);
-    	
-		return null;
+        for (int i = 0; i < list.count; i++) {
+            if (((ProxyLink) list.getObject(i)).ch == channel) {
+                return (ProxyLink) list.getObject(i);
+            }
+        }
+
+        return null;
     }
 }

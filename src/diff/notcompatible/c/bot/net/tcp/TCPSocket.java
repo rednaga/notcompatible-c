@@ -40,10 +40,12 @@ public class TCPSocket extends CustomSocket {
         writeBuff(src);
     }
 
+    @Override
     public void onClose(SelectionKey key) throws IOException {
         super.onClose(key);
     }
 
+    @Override
     public void onConnect(SelectionKey key) throws IOException {
         super.onConnect(key);
         boolean r1i = true;
@@ -61,22 +63,24 @@ public class TCPSocket extends CustomSocket {
         }
     }
 
+    @Override
     public void onNoConnect(SelectionKey key) throws IOException {
         super.onNoConnect(key);
     }
 
+    @Override
     public void onRead(SelectionKey key) throws IOException {
         super.onRead(key);
 
         try {
             if (channel.isConnected()) {
                 tmpBuffer.position(0);
-                if(channel.read(tmpBuffer) != -1) {
-                	readBuffer.put(tmpBuffer.array(), tmpBuffer.position());
-                	return;
-                 }
-             }
-            
+                if (channel.read(tmpBuffer) != -1) {
+                    readBuffer.put(tmpBuffer.array(), tmpBuffer.position());
+                    return;
+                }
+            }
+
             // Either not connected or read failed
             channel.close();
             onNoConnect(key);
@@ -88,12 +92,13 @@ public class TCPSocket extends CustomSocket {
         }
     }
 
+    @Override
     public void onWrite(SelectionKey key) throws IOException {
         super.onWrite(key);
         boolean r2i = true;
         writeBuffer.buffer.position(0);
         writeBuffer.shift(channel.write(writeBuffer.buffer));
-        if (writeBuffer.size == 0 && (key.interestOps() & 4) == 4) {
+        if ((writeBuffer.size == 0) && ((key.interestOps() & 4) == 4)) {
             key.interestOps(key.interestOps() ^ 4);
         }
         if (writeBuffer.size == 0) {
