@@ -14,6 +14,12 @@ public class decrypt {
 
     public static void main(String args[]) {
         try {
+
+	    if(args.length < 1) {
+		System.err.println("Usage: decrypt <config file>");
+		return;
+	    }
+
             // TODO : Extract this out
             // If the local one is not found - we should read this default and cause a save to occur
             InputStream fi = new FileInputStream(new File(args[0]));
