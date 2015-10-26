@@ -1,14 +1,14 @@
 package diff.notcompatible.c.bot;
 
+import diff.notcompatible.c.bot.net.p2pThreadServer;
+import diff.notcompatible.c.bot.objects.HubListItem;
+
 import java.io.File;
 import java.security.Security;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-
-import diff.notcompatible.c.bot.net.p2pThreadServer;
-import diff.notcompatible.c.bot.objects.HubListItem;
 
 public class p2pDriver {
 
