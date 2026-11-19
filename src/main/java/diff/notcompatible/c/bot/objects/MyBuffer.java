@@ -27,9 +27,9 @@ public class MyBuffer {
 
     public long asInt64() {
         byte[] int64 = buffer.array();
-        return ((int64[7] & 0xFF) << 56) | ((int64[6] & 0xFF) << 48) | ((int64[5] & 0xFF) << 40)
-                        | ((int64[4] & 0xFF) << 32) | ((int64[3] & 0xFF) << 24) | ((int64[2] & 0xFF) << 16)
-                        | ((int64[1] & 0xFF) << 8) | (int64[0] & 0xFF);
+        return ((long) (int64[7] & 0xFF) << 56) | ((long) (int64[6] & 0xFF) << 48) | ((long) (int64[5] & 0xFF) << 40)
+                        | ((long) (int64[4] & 0xFF) << 32) | ((long) (int64[3] & 0xFF) << 24)
+                        | ((long) (int64[2] & 0xFF) << 16) | ((long) (int64[1] & 0xFF) << 8) | (int64[0] & 0xFF);
     }
 
     public int asWord() {
@@ -100,7 +100,7 @@ public class MyBuffer {
 
     public void putWord(int data) {
         put((byte) (data & 0xFF));
-        put((byte) (0xFF00 & data));
+        put((byte) ((0xFF00 & data) >> 8));
     }
 
     public void putPort(long port) {

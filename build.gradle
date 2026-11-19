@@ -1,29 +1,36 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+}
 
-version = '0.1.6'
+version = '0.1.7'
 
 repositories {
     mavenCentral()
 }
 
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'org.bouncycastle:bcprov-jdk15on:1.53'
-    }
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 dependencies {
-    compile 'org.bouncycastle:bcprov-jdk15on:1.53'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.87'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.3'
 }
 
 jar {
     manifest {
         attributes 'Main-Class': 'diff.notcompatible.c.bot.driver'
     }
+}
 
-    processResources.inputs.property('version', version)
-    processResources.expand('version': version)
+test {
+    useJUnitPlatform()
+    // ThreadServer.run() is an infinite loop by design (no shutdown hook exists in the
+    // malware code); each test leaves one daemon thread running until the test JVM exits.
+    testLogging {
+        showStandardStreams = false
+        exceptionFormat = 'full'
+    }
 }

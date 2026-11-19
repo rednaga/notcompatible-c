@@ -45,7 +45,8 @@ public class UDPHeader {
 
             count = mb.asByte();
 
-            if (sig == 0xFF05) {
+            // pack() emits 0xFE05 but this check historically only accepted 0xFF05; accept both
+            if (sig == 0xFE05 || sig == 0xFF05) {
                 return true;
             }
         }
