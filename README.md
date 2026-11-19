@@ -10,6 +10,11 @@ Code has some fixes in it as there are some nuances between regular Java and And
 a little bit of a problem as the server takes a while for the Link to establish so I added some
 short timeouts which seem to fix the issue.
 
+Variants / IOCs
+---------------
+See [docs/variants.md](docs/variants.md) for the three reversed samples (A, C, D), their decoded
+configs, C&C domains/IPs and the older variant A protocol.
+
 Building
 --------
 There is an ant file now for conveince and avoid using Eclipse. Simply

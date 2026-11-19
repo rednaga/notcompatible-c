@@ -124,10 +124,14 @@ class MockControllerIntegrationTest {
 
     /** Builds and saves a data.bin identical in shape to resources/default.config, but pointing group 0's server at our mock controller. */
     private static void writeConfigPointingAt(File sessionDirectory, String ip, int port, int botP2PPort, byte[] uuid) {
+        // Same layout as the bot's data.bin: CONFIG -> (SET -> DATA..., UUID, GROUP, PORT)
         Packet root = new Packet();
-        root.tag = "SET";
+        root.tag = "CONFIG";
 
-        Packet data = root.add();
+        Packet set = root.add();
+        set.tag = "SET";
+
+        Packet data = set.add();
         data.tag = "DATA";
 
         Packet lid = data.add();

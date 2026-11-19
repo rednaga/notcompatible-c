@@ -37,7 +37,8 @@ public class ProxyLink extends TCPSocket {
                 selfKey.attach(this);
                 owner.nio.register(this);
             }
-        } catch (IOException exception) {
+        } catch (IOException | java.nio.channels.UnresolvedAddressException exception) {
+            // The bot answers NOCN for an unresolvable domain as well as for a failed connect
             try {
                 LOGGER.throwing(exception.getClass().getName(), "connect()", exception);
                 onNoConnect(selfKey);

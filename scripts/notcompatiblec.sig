@@ -67,3 +67,26 @@ signature notcompatiblec-client-pubkey {
     requires-signature !notcompatiblec-looks-like-http
     event "notcompatiblec: possible bot key-exchange start"
 }
+
+# ---------------------------------------------------------------------------
+# Variant A (com.Security.Update, 2012) -- a different, plaintext protocol.
+#
+# Reversed from MixerSocket.onConnect()/MuxPacket.pack() in the sample with
+# sha256 2c5e656af90044cf5cc694519a42477cb18bd4b2722b1474cdead4a8748d3f70.
+# There is no RSA/RC4 here: the bot connects to a host:port from its AES config
+# (the sample's are notcompatibleapp.eu / 3na3budet9.ru on tcp/8014) and first
+# sends one 13-byte mux frame:
+#     04            version (always 4)
+#     00 00         channel (u16 LE, 0 = control)
+#     01            dataType (1 = control)
+#     05 00 00 00   payload length (u32 LE) = 5
+#     00 07 00 tt tt   payload: 0x07 command, tt tt = ConnectType (u16 LE)
+# Only the fixed bytes are matched (ConnectType is whatever ThreadServer.connType holds).
+# This is a much more specific pattern than the C one above (11 fixed bytes), but,
+# like that one, it has only been tested against synthetic traffic.
+signature notcompatiblea-client-hello {
+    ip-proto == tcp
+    payload /^\x04\x00\x00\x01\x05\x00\x00\x00\x00\x07\x00/
+    tcp-state originator
+    event "notcompatiblea: possible variant A bot hello"
+}

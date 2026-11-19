@@ -48,18 +48,9 @@ public class TCPSocket extends CustomSocket {
     @Override
     public void onConnect(SelectionKey key) throws IOException {
         super.onConnect(key);
-        boolean r1i = true;
-        boolean r0i = writeBuffer.size != 0;
-        if ((key.interestOps() & 4) != 4) {
-            if (r0i & r1i) {
-                key.interestOps(key.interestOps() ^ 4);
-            }
-        } else {
-            r1i = false;
-            if (r0i & r1i) {
-            } else {
-                key.interestOps(key.interestOps() ^ 4);
-            }
+        // Ask for OP_WRITE only if there is something to write and it is not already asked for
+        if ((writeBuffer.size != 0) && ((key.interestOps() & 4) != 4)) {
+            key.interestOps(key.interestOps() ^ 4);
         }
     }
 
@@ -72,19 +63,26 @@ public class TCPSocket extends CustomSocket {
     public void onRead(SelectionKey key) throws IOException {
         super.onRead(key);
 
+        // Like TCPSocket.onRead() in the bot: end of stream (or not connected at all) closes the channel
+        // and calls onClose + cancel, a not-connected channel additionally gets onNoConnect first.
         try {
+            int count;
             if (channel.isConnected()) {
                 tmpBuffer.position(0);
-                if (channel.read(tmpBuffer) != -1) {
-                    readBuffer.put(tmpBuffer.array(), tmpBuffer.position());
-                    return;
-                }
+                count = channel.read(tmpBuffer);
+            } else {
+                channel.close();
+                onNoConnect(key);
+                count = -1;
             }
 
-            // Either not connected or read failed
-            channel.close();
-            onNoConnect(key);
-            key.cancel();
+            if (count == -1) {
+                channel.close();
+                onClose(key);
+                key.cancel();
+            } else {
+                readBuffer.put(tmpBuffer.array(), count);
+            }
         } catch (IOException e) {
             channel.close();
             key.cancel();
@@ -95,24 +93,15 @@ public class TCPSocket extends CustomSocket {
     @Override
     public void onWrite(SelectionKey key) throws IOException {
         super.onWrite(key);
-        boolean r2i = true;
         writeBuffer.buffer.position(0);
         writeBuffer.shift(channel.write(writeBuffer.buffer));
         if ((writeBuffer.size == 0) && ((key.interestOps() & 4) == 4)) {
             key.interestOps(key.interestOps() ^ 4);
         }
-        if (writeBuffer.size == 0) {
-            if (sendAndClose & r2i) {
-                channel.close();
-                onClose(selfKey);
-            }
-        } else {
-            r2i = false;
-            if (sendAndClose & r2i) {
-            } else {
-                channel.close();
-                onClose(selfKey);
-            }
+        // A partial write just waits for the next OP_WRITE; only a drained buffer + sendAndClose closes
+        if ((writeBuffer.size == 0) && sendAndClose) {
+            channel.close();
+            onClose(selfKey);
         }
     }
 }

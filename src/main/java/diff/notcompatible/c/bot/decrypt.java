@@ -9,6 +9,7 @@ import java.io.InputStream;
 import diff.notcompatible.c.bot.crypto.RC4;
 import diff.notcompatible.c.bot.objects.MyBuffer;
 import diff.notcompatible.c.bot.objects.Packet;
+import diff.notcompatible.c.bot.objects.VariantAConfig;
 
 public class decrypt {
 
@@ -30,6 +31,16 @@ public class decrypt {
             dis.read(buffer);
             dis.close();
 
+            // The old variant A (com.Security.Update) uses a totally different config format
+            // (AES + "host|host|port|port"), try that first - it is cheap and strict
+            VariantAConfig variantA = VariantAConfig.decrypt(buffer);
+            if (variantA != null) {
+                System.out.println("[*] Variant A config (AES, \"s1|s2|p1|p2\") found");
+                System.out.println(" [+] Server 1 : [ " + variantA.server1 + ":" + variantA.port1 + " ]");
+                System.out.println(" [+] Server 2 : [ " + variantA.server2 + ":" + variantA.port2 + " ]");
+                return;
+            }
+
             // "generate key"
             byte[] key = new byte[] { (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
                             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
@@ -41,6 +52,11 @@ public class decrypt {
             MyBuffer mb = new MyBuffer();
             mb.put(buffer2);
             Packet pac = Packet.unpack(mb);
+
+            if (pac == null) {
+                System.err.println("[-] Not a recognized config (neither variant A nor RC4/TLV)");
+                return;
+            }
 
             if (pac.tag.equals("SET")) {
                 System.out.println("[*] SET(ting) packet found");
@@ -81,7 +97,7 @@ public class decrypt {
             if (pac.getByName("UUID") == null) {
                 byte[] uid = new byte[16];
                 for (int i = 0; i < uid.length; i++) {
-                    uid[i] = (byte) ((int) (Math.random() * Double.parseDouble("4643211215818981376")));
+                    uid[i] = (byte) ((int) (Math.random() * 256.0));
                 }
 
                 Packet uuid = pac.add();
@@ -99,8 +115,7 @@ public class decrypt {
 
             // No port - make one
             if (pac.getByName("PORT") == null) {
-                int portn = (int) (Double.parseDouble("4656722014701092864") * Math.random() * Double
-                                .parseDouble("4675043176954724352"));
+                int portn = (int) (2048.0 + Math.random() * 35000.0);
                 Packet port = pac.add();
                 port.tag = "PORT";
                 port.buffer.putWord(portn);
