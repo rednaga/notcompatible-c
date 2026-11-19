@@ -69,18 +69,21 @@ public class P2PConnectionList {
         return numOfIncoming;
     }
 
-    // Check if ip address same subnet as any P2PLinks
+    /**
+     * check_subnet() in the bot: true if it is OK to link to this address, i.e. no existing P2PLink
+     * is in the same /24. (Presumably to keep one researcher range from taking up many slots.)
+     */
     public boolean checkSubnet(String ipToCheck) {
         byte[] ip = ip2byte(ipToCheck);
 
         for (int i = 0; i < getCount(); i++) {
             byte[] ip2 = ((P2PLink) list.getObject(i)).socketAddress.getAddress().getAddress();
             if ((ip[0] == ip2[0]) && (ip[1] == ip2[1]) && (ip[2] == ip2[2])) {
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
     public static byte[] ip2byte(String IP) {

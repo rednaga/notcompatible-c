@@ -37,6 +37,8 @@ public class UDPPoint {
         remlist = new UDPRemPointList();
         query = new UDPQuery(this);
         rc4key = new byte[100];
+        // seq starts at 1 and is incremented before use, so the first UDP message goes out as 2
+        seq = 1;
         sendSUIPAfter = false;
         status = LinkStatus.OFFLINE;
     }
@@ -119,7 +121,7 @@ public class UDPPoint {
             sendKEEP();
         } else {
             query.check();
-            if (((lastChangeTime + 30000) > longCheckTime) && isEncrypt) {
+            if (((lastChangeTime + 30000) < longCheckTime) && isEncrypt) {
                 sendPING();
             }
 
@@ -352,7 +354,10 @@ public class UDPPoint {
         LOGGER.info(" [+] Sending a GetSET over UDP");
         Packet packet = new Packet();
         packet.tag = "GETSET";
-        send(packet);
+        // udppoint.SendGetSET() in the bot encrypts the bare packet: unlike every other UDP message
+        // it does not get the 7 byte UDP header in front, so the receiver cannot parse it properly
+        // (see docs/sample-weaknesses.md). Reproduced as is.
+        sendEncrypt(packet.pack());
     }
 
     public void sendSUIP() {

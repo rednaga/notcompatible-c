@@ -40,7 +40,7 @@ public class HubList {
         long currentTime = System.currentTimeMillis();
         for (int i = 0; i < count(); i++) {
             HubListItem item = getByIndex(i);
-            if (!item.used && (item.status == -1) && ((item.lastConnect - 0x65813800L) >= currentTime)) {
+            if (!item.used && (item.status == -1) && ((item.lastConnect - 0x65813800L) < currentTime)) {
                 delete(item);
             }
         }
@@ -187,35 +187,19 @@ public class HubList {
         return bf;
     }
 
+    /**
+     * HubList.GetHubListForSend() in the bot. It sorts the list and returns a packet with the right tag
+     * but NO items: its loop is "for (i = 0; i &lt; count; i++)" where count is a local that starts at 0 and
+     * is only incremented inside the loop, so the body never runs. Every HUBLIST / UDPHUBLIST the real
+     * bot sends in answer to GETHUB is therefore empty. (Intended behaviour was clearly "up to 20 items
+     * that were connected to or are in use"; this reproduces what the bot actually does. See
+     * docs/sample-weaknesses.md.)
+     */
     public Packet getHubListFordSend() {
         list.sort(new HubListSortConnected());
 
-        int count = 0;
-
         Packet hubListPacket = new Packet();
         hubListPacket.tag = tag;
-
-        for (int i = 0; i < list.count; i++) {
-            HubListItem item = getByIndex(i);
-            if ((item.lastConnect > 0) || item.used) {
-                Packet itemPacket = hubListPacket.add();
-                itemPacket.tag = "Item";
-
-                Packet ipPacket = itemPacket.add();
-                ipPacket.tag = "IP";
-                ipPacket.buffer.putIP(item.ip);
-
-                Packet portPacket = itemPacket.add();
-                portPacket.tag = "Port";
-                portPacket.buffer.putPort(item.port);
-
-                if (count == 20) {
-                    break;
-                }
-
-                count++;
-            }
-        }
 
         return hubListPacket;
     }

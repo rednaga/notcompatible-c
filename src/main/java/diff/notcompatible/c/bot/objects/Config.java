@@ -42,6 +42,33 @@ public class Config {
         }
     }
 
+    /**
+     * The bot keeps its config under a "CONFIG" root packet: SET (the signed config: Sign + DATA) is a
+     * child of it, next to the UUID / GROUP / PORT / INDEXGROUP / LDGROUP / FB values the bot adds
+     * itself. resources/default.config is just the SET packet, so it gets wrapped. data.bin files
+     * written by earlier versions of this class had SET as the root with those values inside it; they
+     * are migrated.
+     */
+    static Packet toConfigRoot(Packet loaded) {
+        if ((loaded != null) && loaded.tag.equals("CONFIG")) {
+            return loaded;
+        }
+
+        Packet root = new Packet();
+        root.tag = "CONFIG";
+        if (loaded != null) {
+            root.add(loaded);
+            for (String tag : new String[] { "UUID", "GROUP", "PORT", "INDEXGROUP", "LDGROUP", "FB" }) {
+                Packet moved = loaded.getByName(tag);
+                if (moved != null) {
+                    loaded.delete(tag);
+                    root.add(moved);
+                }
+            }
+        }
+        return root;
+    }
+
     // Loads a "config packet"
     // This normally loads "data.bin" in current location - otherwise load the "data" from "res/raw"
     public void load() {
@@ -70,13 +97,14 @@ public class Config {
 
             MyBuffer mb = new MyBuffer();
             mb.put(buffer2);
-            packet = Packet.unpack(mb);
+            packet = toConfigRoot(Packet.unpack(mb));
 
             // No UUID, generate one
             if (packet.getByName("UUID") == null) {
                 byte[] uid = new byte[16];
                 for (int i = 0; i < uid.length; i++) {
-                    uid[i] = (byte) ((int) (Math.random() * Double.parseDouble("4643211215818981376")));
+                    // config.Load: (byte) (int) (Math.random() * 256.0)
+                    uid[i] = (byte) ((int) (Math.random() * 256.0));
                 }
 
                 Packet uuid = packet.add();
@@ -96,8 +124,11 @@ public class Config {
 
             // No port - make one
             if (packet.getByName("PORT") == null) {
-                int portn = (int) (Double.parseDouble("4656722014701092864") * Math.random() * Double
-                                .parseDouble("4675043176954724352"));
+                // config.Load: (int) (2048.0 + Math.random() * 35000.0). (The smali shows these as raw
+                // IEEE-754 bit patterns, 0x40a0000000000000 and 0x40e1170000000000; an earlier version of
+                // this class parsed those bit patterns as decimal numbers, so every UUID byte was 0xFF
+                // and the port was always 65535.)
+                int portn = (int) (2048.0 + Math.random() * 35000.0);
                 Packet port = packet.add();
                 port.tag = "PORT";
                 port.buffer.putWord(portn);

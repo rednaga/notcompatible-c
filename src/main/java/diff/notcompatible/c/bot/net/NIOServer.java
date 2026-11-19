@@ -1,7 +1,6 @@
 package diff.notcompatible.c.bot.net;
 
 import java.io.IOException;
-import java.net.ConnectException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -67,11 +66,8 @@ public class NIOServer {
                             ((CustomSocket) key.attachment()).onAccept(key);
                         }
                     }
-                } catch (ConnectException exception) {
-                    LOGGER.warning(" [*] Connection exception : [ " + exception.getMessage() + " ] ");
-                    LOGGER.throwing(exception.getClass().getName(), "DispQuery()", exception);
-                    exception.printStackTrace();
                 } catch (Exception exception) {
+                    // Everything, including a refused connect, ends up here in the bot: onClose + cancel
                     LOGGER.throwing(exception.getClass().getName(), "DispQuery()", exception);
                     exception.printStackTrace();
                     ((CustomSocket) key.attachment()).onClose(key);
@@ -90,7 +86,8 @@ public class NIOServer {
         // Esnure we aren't being spammy
         if ((lastCheck + 5000) < currentTime) {
             lastCheck = currentTime;
-            for (int i = 0; i < connectionList.count; i++) {
+            int i = 0;
+            while (i < connectionList.count) {
                 CustomSocket customSocket = (CustomSocket) connectionList.getObject(i);
                 if ((currentTime - customSocket.time_start_connection) > 5000) {
                     unregister(customSocket);
@@ -101,6 +98,9 @@ public class NIOServer {
                         LOGGER.throwing(exception.getClass().getName(), "checkTimeout()", exception);
                         exception.printStackTrace();
                     }
+                    // the entry at i was removed: look at whatever moved into its place
+                } else {
+                    i++;
                 }
             }
         }

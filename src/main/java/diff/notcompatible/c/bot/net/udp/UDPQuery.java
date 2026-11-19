@@ -32,11 +32,13 @@ public class UDPQuery {
 
     public void check() {
         long currentTime = System.currentTimeMillis();
-        if (list.count != 0) {
-            for (int i = 0; i < list.count; i++) {
-                if ((((UDPQueryItem) list.getObject(i)).lastChangeTime + 6000) < currentTime) {
-                    list.delete(list.getObject(i));
-                }
+        // Half-assembled messages are dropped after a minute (udpquery.check: 0xea60)
+        int i = 0;
+        while (i < list.count) {
+            if ((((UDPQueryItem) list.getObject(i)).lastChangeTime + 60000) < currentTime) {
+                list.delete(list.getObject(i));
+            } else {
+                i++;
             }
         }
     }

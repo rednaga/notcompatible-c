@@ -151,15 +151,18 @@ public class RSA {
      * @return
      */
     public boolean check(byte[] digest, byte[] signatureValue) {
+        // rsa.check() in the bot: "decode" the signature and compare the digest-sized tail of the result.
+        // A null result or one shorter than the digest is simply "not valid" (this used to throw, or
+        // reject a result that was exactly digest-sized)
         byte[] dc = encrypt(signatureValue);
 
-        if (dc.length != digest.length) {
-            byte[] dst = new byte[digest.length];
-            System.arraycopy(dc, dc.length - digest.length, dst, 0, dst.length);
-            return Arrays.equals(dst, digest);
+        if ((dc == null) || (dc.length < digest.length)) {
+            return false;
         }
 
-        return false;
+        byte[] dst = new byte[digest.length];
+        System.arraycopy(dc, dc.length - digest.length, dst, 0, dst.length);
+        return Arrays.equals(dst, digest);
     }
 
     public void loadClientPublic(File file) {

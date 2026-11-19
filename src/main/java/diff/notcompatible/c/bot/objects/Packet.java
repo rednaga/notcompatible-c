@@ -81,11 +81,9 @@ public class Packet {
     }
 
     public Packet getByName(String tagName) {
+        // Children only, like packet.getByName() in the bot. (An earlier version also returned this
+        // packet when its own tag matched, which hid the config layout being one level off.)
         Packet packet = null;
-
-        if (tag.equals(tagName)) {
-            packet = this;
-        }
 
         for (int i = 0; i < list.count; i++) {
             // It technically should use contentEquals or something
@@ -159,8 +157,8 @@ public class Packet {
             return packet;
         }
 
-        // No packet is size + 1 byte!
-        if (data.size > 5) {
+        // No packet is size + 1 byte! (the bot's check is Size < 5 => bad)
+        if (data.size >= 5) {
             int size = data.asDWord();
             // Something is wrong if the size it out of bounds
             if (data.size >= size) {

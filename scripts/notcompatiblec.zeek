@@ -30,12 +30,28 @@ export {
         ## passive heuristic on a dynamic-length field Zeek's signature
         ## language can't fully validate -- confirm with an active probe
         ## (notcompatiblec.nse / zmap_verify.py) before treating it as real.
-        Possible_Handshake
+        Possible_Handshake,
+        ## Fired when a connection's first originator-side bytes are the
+        ## old variant A bot's plaintext mux "hello" frame (see
+        ## notcompatiblec.sig, signature notcompatiblea-client-hello).
+        Possible_VariantA_Hello
     };
 }
 
 event signature_match(state: signature_state, msg: string, data: string)
 {
+    if (state$sig_id == "notcompatiblea-client-hello")
+        {
+        NOTICE([$note=Possible_VariantA_Hello,
+                $msg=fmt("possible NotCompatible variant A hello from %s to %s:%s "
+                          + "(plaintext mux frame 04 00 00 01 05 00 00 00 00 07 00; "
+                          + "unvalidated against real traffic)",
+                          state$conn$id$orig_h, state$conn$id$resp_h, state$conn$id$resp_p),
+                $conn=state$conn,
+                $identifier=cat(state$conn$id$orig_h, state$conn$id$resp_h, state$conn$id$resp_p)]);
+        return;
+        }
+
     if (state$sig_id != "notcompatiblec-client-pubkey")
         return;
 

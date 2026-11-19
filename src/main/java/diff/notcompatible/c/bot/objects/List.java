@@ -44,15 +44,14 @@ public class List {
     public Item getItem(int index) {
         Item item = null;
 
-        if (head != null) {
-            int current = 0;
-            Item currentItem = head;
-            while (current != index) {
-                currentItem = currentItem.next;
-                current++;
-            }
-            item = currentItem;
+        // Out of range is null, like list.GetItem() in the bot (this used to walk off the end and NPE)
+        Item currentItem = head;
+        int current = 0;
+        while ((currentItem != null) && (current != index)) {
+            currentItem = currentItem.next;
+            current++;
         }
+        item = currentItem;
 
         return item;
     }
@@ -112,7 +111,7 @@ public class List {
     }
 
     public void sort(ListSortCompare listSortCompare) {
-        if (count > 2) {
+        if (count >= 2) {
             prSort(listSortCompare, 0, count - 1);
         }
     }

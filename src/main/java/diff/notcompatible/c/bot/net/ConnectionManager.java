@@ -36,29 +36,33 @@ public class ConnectionManager {
             index = config.packet.getByName("INDEXGROUP").asDWord();
         }
 
-        // XXX: Seems to be off by a packet?
-        Packet packet = config.packet;// .getByName("SET");
-        for (int x = 0; x < packet.getCount(); x++) {
-            if (packet.getByIndex(x).tag.equals("DATA")) {
-                Packet data = packet.getByIndex(x);
-                for (int i = 0; i < data.getCount(); i++) {
-                    Packet tmp = data.getByIndex(i);
-                    if (tmp.tag.equals("GROUP")) {
-                        int ngr = tmp.getByName("ID").asWord();
-                        for (int j = 0; j < tmp.getCount(); j++) {
-                            Packet tmp2 = tmp.getByIndex(j);
-                            if (tmp2.tag.equals("SERV")) {
-                                groupServerList.addServerInGroup(ngr, new Server(tmp2.getByName("IP").asIP(), tmp2
-                                                .getByName("PORT").asPort()));
-                            }
-                            if (tmp2.tag.equals("DOM")) {
-                                groupServerList.addServerInGroup(ngr, new Server(tmp2.getByName("NAME").asString(),
-                                                tmp2.getByName("PORT").asPort()));
-                            }
+        // CONFIG -> SET -> DATA -> GROUP -> (ID, SERV | DOM)
+        Packet setPacket = config.packet.getByName("SET");
+        Packet data = (setPacket != null) ? setPacket.getByName("DATA") : null;
+        if (data != null) {
+            for (int i = 0; i < data.getCount(); i++) {
+                Packet tmp = data.getByIndex(i);
+                if (tmp.tag.equals("GROUP")) {
+                    int ngr = tmp.getByName("ID").asWord();
+                    for (int j = 0; j < tmp.getCount(); j++) {
+                        Packet tmp2 = tmp.getByIndex(j);
+                        if (tmp2.tag.equals("SERV")) {
+                            groupServerList.addServerInGroup(ngr, new Server(tmp2.getByName("IP").asIP(), tmp2
+                                            .getByName("PORT").asPort()));
+                        }
+                        if (tmp2.tag.equals("DOM")) {
+                            groupServerList.addServerInGroup(ngr, new Server(tmp2.getByName("NAME").asString(),
+                                            tmp2.getByName("PORT").asPort()));
                         }
                     }
                 }
             }
+        }
+
+        // A saved group that is not in the config any more: start over
+        if (groupServerList.getByID(group) == null) {
+            group = 0;
+            index = 0;
         }
     }
 
@@ -98,7 +102,10 @@ public class ConnectionManager {
 
         if (serverGroup != null) {
             if (serverGroup.count() > 0) {
-                if (serverGroup.count() > index) {
+                // 63d5 (com.core.android.defender) wraps when index >= count. 75da (com.security.patch)
+                // has the comparison the other way round ("count >= index") and so never moves past
+                // the first server; that is one of the observable differences between the two.
+                if (serverGroup.count() <= index) {
                     index = 0;
                 }
                 LOGGER.info(" [!] Establishing connection to server - " + serverGroup.indexOf(index).server + ":"

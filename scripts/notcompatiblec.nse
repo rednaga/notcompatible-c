@@ -12,7 +12,17 @@ NotCompatible.C servers are reported to sit on port 443; infected P2P nodes
 listen on a port the bot itself picked at random, so this script intentionally
 does not restrict itself to 443.
 
+The old variant A (com.Security.Update, 2012) speaks a different, plaintext mux
+protocol (tcp/8014 in the one sample reversed). It is probed too, on 8014 by
+default, or on every open port with --script-args notcompatiblec.variant=a (A
+only) / notcompatiblec.variant=all (C then A). The A check is weaker than the C
+one: see the comment above PROBE_A.
+
 Reference: https://github.com/rednaga/notcompatible-c
+
+@args notcompatiblec.variant  "c" (only the RSA/RC4 handshake), "a" (only the
+                              variant A mux hello) or "all". Default: C on
+                              every open port, plus A on tcp/8014.
 ]]
 
 author = "Tim 'diff' Strazzere"
@@ -52,7 +62,7 @@ local PROBE = "\x80\x00\x00\x00" ..
 -- single recv() can return all 132+ bytes at once.
 local EXPECTED_PREFIX = "\x80\x00\x00\x00"
 
-action = function(host, port)
+local function probe_c(host, port)
   local socket = nmap.new_socket()
   -- Keep this short and explicit. Nmap's own default NSE socket timeout is
   -- much longer than you want per-host when sweeping a whole port range or
@@ -93,4 +103,53 @@ action = function(host, port)
   table.insert(out, ("Replied with a %d-byte dword-prefixed blob to the bot's key-exchange probe"):format(#response))
 
   return stdnse.format_output(true, out)
+end
+
+-- Variant A (com.Security.Update): MixerSocket.onConnect() sends one 13-byte mux
+-- frame: version 4, channel 0, dataType 1 (control), length 5, then the payload
+-- 00 07 00 <ConnectType u16 LE>. The server is the side that issues commands
+-- (ping 0x04, connect-proxy 0x01, ...), each as the same 8-byte-header frame, so a
+-- real C&C is expected to answer with a well-formed frame. That is inferred from the
+-- bot side only -- no variant A server has been probed, so treat a hit as "speaks
+-- this framing", not as proof.
+local PROBE_A = "\x04\x00\x00\x01\x05\x00\x00\x00\x00\x07\x00\x00\x00"
+
+-- A reply is plausible if it parses like MuxPacket.unpack(): version 4, dataType 0 or 1,
+-- and a sane (<= 64KB) length.
+local function looks_like_mux(resp)
+  if #resp < 8 then return false end
+  local ver, dtype = resp:byte(1), resp:byte(4)
+  if ver ~= 4 or (dtype ~= 0 and dtype ~= 1) then return false end
+  local len = resp:byte(5) + resp:byte(6) * 256 + resp:byte(7) * 65536 + resp:byte(8) * 16777216
+  return len <= 65535
+end
+
+local function probe_a(host, port)
+  local socket = nmap.new_socket()
+  socket:set_timeout(4000)
+  local status, err = socket:connect(host, port)
+  if not status then return nil end
+  status, err = socket:send(PROBE_A)
+  if not status then socket:close() return nil end
+  local response
+  status, response = socket:receive_bytes(8)
+  socket:close()
+  if not status or not response or not looks_like_mux(response) then return nil end
+  return stdnse.format_output(true, {
+    "NotCompatible variant A C&C (plaintext mux framing, unconfirmed)",
+    ("Replied with a %d-byte frame (version 4, dataType %d) to the bot's mux hello"):format(#response, response:byte(4)),
+  })
+end
+
+action = function(host, port)
+  local variant = stdnse.get_script_args("notcompatiblec.variant") or "default"
+  local result
+  if variant ~= "a" then
+    result = probe_c(host, port)
+    if result then return result end
+  end
+  if variant == "a" or variant == "all" or port.number == 8014 then
+    return probe_a(host, port)
+  end
+  return nil
 end

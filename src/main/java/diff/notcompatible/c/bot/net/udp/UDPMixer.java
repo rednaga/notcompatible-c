@@ -25,14 +25,21 @@ public class UDPMixer extends UDPSocket {
 
     public void check() {
         long currentTime = System.currentTimeMillis();
-        for (int i = 0; i < count(); i++) {
+        int i = 0;
+        while (i < count()) {
             UDPPoint udpPoint = list.getByIndex(i);
-            if ((udpPoint.lastChangeTime + 60000) < currentTime) { // ||
-                                                                   // udpPoint.endPoint.getAddress().getHostAddress().equals(owner.ip))
-                                                                   // {
+            // Drop peers that have been quiet for a minute, and any that turn out to be ourselves
+            if (((udpPoint.lastChangeTime + 60000) < currentTime)
+                            || udpPoint.endPoint.getAddress().getHostAddress().equals(owner.ip)) {
+                int before = count();
                 udpPoint.doDelete(udpPoint.isEncrypt);
+                // doDelete() removes the peer, so the same index holds the next one (don't spin if not)
+                if (count() >= before) {
+                    i++;
+                }
             } else {
                 udpPoint.check();
+                i++;
             }
         }
     }
@@ -41,13 +48,16 @@ public class UDPMixer extends UDPSocket {
         for (int i = 0; i < count(); i++) {
             UDPPoint udpPoint = list.getByIndex(i);
             UDPRemPointListItem rplItem = udpPoint.remlist.getCandidate();
-            if ((rplItem != null) && (list.getByInetSocketAddress(rplItem.addr) != null)) {
+            // Only for peers of that peer that we do not already have a link to
+            if ((rplItem != null) && (list.getByInetSocketAddress(rplItem.addr) == null)) {
                 udpPoint.sendPUSH(rplItem.addr.getAddress().getHostAddress(), rplItem.addr.getPort());
                 rplItem.status = 1;
                 UDPPoint upLink = createLink(rplItem.addr.getAddress().getHostAddress(), rplItem.addr.getPort());
-                upLink.lastChangeTime = System.currentTimeMillis() + 30000;
-                upLink.keepByte = (byte) 0x03;
-                upLink.sendKEEP();
+                if (upLink != null) {
+                    upLink.lastChangeTime = System.currentTimeMillis() + 30000;
+                    upLink.keepByte = (byte) 0x03;
+                    upLink.sendKEEP();
+                }
             }
         }
     }
@@ -56,7 +66,7 @@ public class UDPMixer extends UDPSocket {
         UDPPoint upLink = null;
         InetSocketAddress epAddr = new InetSocketAddress(ip, port);
 
-        if ((list.getByInetSocketAddress(epAddr) == null) && !checkSubnet(ip)) {
+        if ((list.getByInetSocketAddress(epAddr) == null) && checkSubnet(ip)) {
             upLink = new UDPPoint(this);
             upLink.endPoint = epAddr;
             upLink.lastChangeTime = System.currentTimeMillis();
@@ -86,18 +96,18 @@ public class UDPMixer extends UDPSocket {
         return list.getCandidates();
     }
 
-    // Check if ip address same subnet as any P2PLinks
+    // check_subnet() in the bot: true if it is OK to link to this address (no UDP peer in the same /24)
     public boolean checkSubnet(String ipToCheck) {
         byte[] ip = ip2byte(ipToCheck);
 
         for (int i = 0; i < count(); i++) {
             byte[] ip2 = list.getByIndex(i).endPoint.getAddress().getAddress();
             if ((ip[0] == ip2[0]) && (ip[1] == ip2[1]) && (ip[2] == ip2[2])) {
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
     public static byte[] ip2byte(String IP) {
