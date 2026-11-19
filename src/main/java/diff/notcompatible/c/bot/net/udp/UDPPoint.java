@@ -482,11 +482,13 @@ public class UDPPoint {
         buffer.put(packet.pack());
         seq++;
         header.sequence = seq;
-        header.part = (buffer.size + 499) / 500;
-        for (int i = 1; i <= header.part; i++) {
+        // Wire order is part (1-based fragment index) then count (total fragments), as the receiver
+        // (UDPQuery/UDPQueryItem) and G2's datagram framing expect
+        header.count = (buffer.size + 499) / 500;
+        for (int i = 1; i <= header.count; i++) {
             byte[] r = buffer.read(500);
             if (r.length > 0) {
-                header.count = i;
+                header.part = i;
                 ot.clear();
                 ot.put(header.pack());
                 ot.put(r);
